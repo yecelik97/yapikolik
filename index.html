@@ -283,6 +283,7 @@ function openPlayer(name){
     <div class="phead">${ava(p, "xl")}<div><div class="pname">${esc(p.name)}</div><div class="note"><span class="dot" style="background:${c}"></span>${esc(p.team)} · takımda ${rank}. en iyi</div></div>
       <span class="chip big" style="background:${ratingColor(r)}">${r.toFixed(1)}</span></div>
     <div class="ptiles">${tiles.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join("")}</div>
+    ${p.rating_run != null ? `<p class="note" style="margin:8px 0 0">Puan ${r.toFixed(1)} = koşu ${p.rating_run.toFixed(1)}${m.has_ball ? ` ${p.rating_ball < 0 ? "−" : "+"} top verisi ${Math.abs(p.rating_ball).toFixed(1)}` : ""}${(e.goals || e.assists) ? ` + gol/asist ${((e.goals || 0) + (e.assists || 0) * 0.5).toFixed(1)}` : ""}${r >= 10 ? " (en fazla 10)" : ""}. Top verisi: isabetli pas, pas isabeti, dokunuş, top kapma, top kaybı ve şut.</p>` : ""}
     ${lowc ? `<p class="note" style="margin:8px 0 0">~ Bu takımın oyuncu bazında koşu verisi yaklaşık.${m.blend_note ? " " + esc(m.blend_note) + "." : ""}</p>` : ""}
     <h3 class="sub">Isı haritası</h3>${pitchSvg(L, W, heatCells(p, L, W))}
     <h3 class="sub">Ortalama konum ve saha bölgeleri</h3>${pitchSvg(L, W, posMark)}
