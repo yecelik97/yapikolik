@@ -239,11 +239,11 @@ function videoPanel(m, colorOf){
   const goals = (m.goals || []).slice().sort((a, b) => a.t - b.t);
   let h = `<section class="panel" id="videos"><h2>Maç videosu</h2>`;
   if (goals.length){
-    h += `<h3 class="sub" style="margin:10px 0 4px">Goller</h3><ol class="glist">` + goals.map(g => {
+    h += `<h3 class="sub" style="margin:10px 0 4px">${goals.every(g => g.auto) ? "Olası gol anları" : "Goller"}</h3><ol class="glist">` + goals.map(g => {
       const who = g.scorer ? esc(g.scorer) + (g.assist ? ` <span class="note">(asist ${esc(g.assist)})</span>` : "") : `<span class="note">${g.team ? "Gol" : "Olası gol"}</span>`;
       return `<li><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="dot" style="background:${g.team ? colorOf(g.team) : "var(--mute)"}"></span><span class="gwho">${who}${g.auto ? ` <span class="lowc" title="Videodan otomatik bulundu, henüz kontrol edilmedi">~</span>` : ""}</span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span></li>`;
     }).join("") + `</ol>`;
-    if (goals.some(g => g.auto)) h += `<p class="note" style="margin-top:6px">~ Gol anları videodan otomatik bulundu (top takibi ve santradan başlama). Dakika birkaç saniye kayabilir; bağlantı golden ~12 sn önce açılır.${m.goals_note ? " " + esc(m.goals_note) : ""}</p>`;
+    if (goals.some(g => g.auto)) h += `<p class="note" style="margin-top:6px">~ Bu anlar videodan otomatik bulundu: kale ağzında biten top uçuşları ve oyuncuların yavaşlayıp santraya döndüğü anlar. Her biri gol olmayabilir; bağlantı o andan ~12 sn önce açılır.${m.goals_note ? " " + esc(m.goals_note) : ""}</p>`;
   }
   h += `<h3 class="sub" style="margin:12px 0 4px">Tam kayıtlar</h3><ul class="vlist">` +
     (v.pages || []).map(p => `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.label)}</a> <span class="note">Sosyal Halısaha maç sayfası</span></li>`).join("") +
