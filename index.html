@@ -163,6 +163,10 @@ h3.sub{font:700 13px/1.3 var(--body);color:var(--ink);text-align:center;margin:2
 .vbtn span{color:var(--mute);font-weight:500}
 .vbtn:hover,.vbtn:focus-visible{background:#dfe4fd}
 .vlist li{padding:6px 0}
+.gedit{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex-basis:100%;padding-left:42px}
+.gedit select,.gedit input{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+.gedit button{font:600 13px var(--body);padding:5px 12px;border-radius:999px;border:0;background:#374df5;color:#fff;cursor:pointer}
+.gno .gmin{color:var(--mute)}
 .vlist a{color:#374df5;font-weight:600}
 section.panel > p.note:first-of-type{margin-left:auto;margin-right:auto;text-align:center}
 /* stat rows: value · label · value, then a split bar; the leading value sits in a coloured pill */
@@ -232,18 +236,52 @@ function vidAt(m, cam, gs, lead = 12){
   const t = Math.max(0, clock - hms(f.from));
   return {url: f.url + "#t=" + Math.round(t), at: mmss(t), file: f};
 }
+function parseMin(v){ const t = String(v || "").trim(); if (!t) return null; const [a, b] = t.split(/[:.]/); const mi = +a, se = b == null ? 0 : +b; return isFinite(mi) && isFinite(se) ? Math.max(0, (mi - (b == null ? 1 : 0)) * 60 + se) : null; }
+async function saveGoal(m, box){
+  const f = k => (box.querySelector(`[data-f="${k}"]`) || {}).value || "";
+  const msg = box.querySelector("[data-gmsg]"), goals = (m.goals || []).map(g => ({...g}));
+  const scorer = f("scorer"), assist = f("assist"), t = parseMin(f("t"));
+  const team = (m.players.find(q => q.name === scorer) || {}).team || null;
+  if (box.dataset.gi === "new"){
+    if (t == null || !scorer){ msg.textContent = "Dakika ve golü atanı seçin."; return; }
+    goals.push({t, auto: false, verdict: "yes", scorer, assist: assist || null, team});
+  } else {
+    const g = goals[+box.dataset.gi], verdict = f("verdict") || (scorer ? "yes" : "");
+    Object.assign(g, {verdict: verdict || null, scorer: verdict === "no" ? null : (scorer || null), assist: verdict === "no" ? null : (assist || null), team: verdict === "no" ? null : team});
+    if (t != null) g.t = t;
+  }
+  // keep the score and goal/assist counts in step with the confirmed goals
+  const yes = goals.filter(g => g.verdict === "yes" && g.scorer), patch = {goals};
+  // once every goal of the final score is tagged, the goal/assist counts come from the tags
+  const total = m.score ? Object.values(m.score).reduce((x, y) => x + (+y || 0), 0) : 0;
+  if (total && yes.length === total){ const events = {}; for (const g of yes){ (events[g.scorer] ||= {goals: 0, assists: 0}).goals++; if (g.assist) (events[g.assist] ||= {goals: 0, assists: 0}).assists++; } patch.events = events; }
+  msg.textContent = "Kaydediliyor…";
+  try { await db.doc("matches/" + m.id).update(patch); m.goals = goals; if (patch.events) m.events = patch.events; msg.textContent = "Kaydedildi."; render(); }
+  catch (e) { msg.textContent = "Kaydedilemedi: bu sayfada yazma izniniz yok."; }
+}
 function videoPanel(m, colorOf){
   const v = m.videos; if (!v) return "";
   const cams = [...new Set((v.files || []).map(f => f.cam))].sort();
   const btn = (cam, gs) => { const x = vidAt(m, cam, gs); return x ? `<a class="vbtn" href="${esc(x.url)}" target="_blank" rel="noopener" title="Kamera ${cam} kaydında ${x.at}">▶ Kamera ${cam} <span>${x.at}</span></a>` : ""; };
-  const goals = (m.goals || []).slice().sort((a, b) => a.t - b.t);
+  const allGoals = (m.goals || []).map((g, i) => ({...g, i})).sort((a, b) => a.t - b.t);
+  const goals = canWrite ? allGoals : allGoals.filter(g => g.verdict !== "no");
   let h = `<section class="panel" id="videos"><h2>Maç videosu</h2>`;
   if (goals.length){
-    h += `<h3 class="sub" style="margin:10px 0 4px">${goals.every(g => g.auto) ? "Olası gol anları" : "Goller"}</h3><ol class="glist">` + goals.map(g => {
-      const who = g.scorer ? esc(g.scorer) + (g.assist ? ` <span class="note">(asist ${esc(g.assist)})</span>` : "") : `<span class="note">${g.team ? "Gol" : "Olası gol"}</span>`;
-      return `<li><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="dot" style="background:${g.team ? colorOf(g.team) : "var(--mute)"}"></span><span class="gwho">${who}${g.auto ? ` <span class="lowc" title="Videodan otomatik bulundu, henüz kontrol edilmedi">~</span>` : ""}</span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span></li>`;
+    h += `<h3 class="sub" style="margin:10px 0 4px">${goals.every(g => g.auto && !g.verdict) ? "Olası gol anları" : "Goller"}</h3><ol class="glist">` + goals.map(g => {
+      const who = g.scorer ? esc(g.scorer) + (g.assist ? ` <span class="note">(asist ${esc(g.assist)})</span>` : "") : `<span class="note">${g.team || g.verdict === "yes" ? "Gol" : "Olası gol"}</span>`;
+      const opts = (sel, team) => `<option value="">–</option>` + m.players.filter(q => !team || q.team === team).map(q => `<option${q.name === sel ? " selected" : ""}>${esc(q.name)}</option>`).join("");
+      const sTeam = (m.players.find(q => q.name === g.scorer) || {}).team;
+      const edit = canWrite ? `<div class="gedit" data-gi="${g.i}">
+        <select data-f="verdict" aria-label="Gol mü?"><option value=""${!g.verdict ? " selected" : ""}>Gol mü?</option><option value="yes"${g.verdict === "yes" ? " selected" : ""}>Gol</option><option value="no"${g.verdict === "no" ? " selected" : ""}>Gol değil</option></select>
+        <select data-f="scorer" aria-label="Golü atan">${opts(g.scorer).replace('<option value="">–</option>', '<option value="">Golü atan</option>')}</select>
+        <select data-f="assist" aria-label="Asist">${opts(g.assist, sTeam).replace('<option value="">–</option>', '<option value="">Asist yok</option>')}</select>
+        <label class="note">dk <input data-f="t" type="text" inputmode="numeric" value="${mmss(g.t)}" aria-label="Maç dakikası (dk:sn)" style="width:62px"></label>
+        <button type="button" data-gsave>Kaydet</button><span class="note" role="status" data-gmsg></span></div>` : "";
+      if (g.verdict === "no") return `<li class="gno"><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="gwho note"><s>Gol değil</s></span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span>${edit}</li>`;
+      return `<li><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="dot" style="background:${g.team ? colorOf(g.team) : "var(--mute)"}"></span><span class="gwho">${who}${g.auto && !g.verdict ? ` <span class="lowc" title="Videodan otomatik bulundu, henüz kontrol edilmedi">~</span>` : ""}</span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span>${edit}</li>`;
     }).join("") + `</ol>`;
-    if (goals.some(g => g.auto)) h += `<p class="note" style="margin-top:6px">~ Bu anlar videodan otomatik bulundu: kale ağzında biten top uçuşları ve oyuncuların yavaşlayıp santraya döndüğü anlar. Her biri gol olmayabilir; bağlantı o andan ~12 sn önce açılır.${m.goals_note ? " " + esc(m.goals_note) : ""}</p>`;
+    if (canWrite) h += `<div class="gedit" style="margin-top:8px" data-gi="new"><span class="note">Listede olmayan bir gol:</span><label class="note">dk <input data-f="t" type="text" inputmode="numeric" placeholder="12:30" aria-label="Maç dakikası (dk:sn)" style="width:62px"></label><select data-f="scorer" aria-label="Golü atan"><option value="">Golü atan</option>${m.players.map(q => `<option>${esc(q.name)}</option>`).join("")}</select><select data-f="assist" aria-label="Asist"><option value="">Asist yok</option>${m.players.map(q => `<option>${esc(q.name)}</option>`).join("")}</select><button type="button" data-gsave>Gol ekle</button><span class="note" role="status" data-gmsg></span></div>`;
+    if (goals.some(g => g.auto && !g.verdict)) h += `<p class="note" style="margin-top:6px">~ Bu anlar videodan otomatik bulundu: kale ağzında biten top uçuşları ve oyuncuların yavaşlayıp santraya döndüğü anlar. Her biri gol olmayabilir; bağlantı o andan ~12 sn önce açılır.${m.goals_note ? " " + esc(m.goals_note) : ""}</p>`;
   }
   h += `<h3 class="sub" style="margin:12px 0 4px">Tam kayıtlar</h3><ul class="vlist">` +
     (v.pages || []).map(p => `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.label)}</a> <span class="note">Sosyal Halısaha maç sayfası</span></li>`).join("") +
@@ -561,6 +599,7 @@ function render(){
   }
   ctx = {m, distP, colorOf, L, W, F0};
   view.innerHTML = html;
+  for (const b of view.querySelectorAll("[data-gsave]")) b.onclick = () => saveGoal(m, b.closest(".gedit"));
   for (const b of view.querySelectorAll("[data-pt]")) b.onclick = () => { passTeam = b.dataset.pt; render(); };
   for (const b of view.querySelectorAll("[data-shot]")) b.addEventListener("click", () => { const i = +b.dataset.shot; shotSel = shotSel === i ? null : i; render(); });
   if ($("shotP")) $("shotP").onchange = e => { shotPlayer = e.target.value; shotSel = null; render(); };
