@@ -153,6 +153,17 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:va
 h2{font:700 16px/1.3 var(--body);text-align:center}
 h3.sub{font:700 13px/1.3 var(--body);color:var(--ink);text-align:center;margin:20px 0 4px;padding-top:14px;border-top:1px solid var(--line)}
 .note{text-align:left}
+.glist,.vlist{list-style:none;margin:0;padding:0}
+.glist li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.glist li:first-child{border-top:0}
+.gmin{font:700 14px var(--body);min-width:34px;font-variant-numeric:tabular-nums}
+.gwho{flex:1 1 140px;font-weight:600}
+.gbtns{display:flex;gap:6px;flex-wrap:wrap}
+.vbtn{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:999px;background:#eef1fe;color:#374df5;font:600 13px var(--body);text-decoration:none;white-space:nowrap}
+.vbtn span{color:var(--mute);font-weight:500}
+.vbtn:hover,.vbtn:focus-visible{background:#dfe4fd}
+.vlist li{padding:6px 0}
+.vlist a{color:#374df5;font-weight:600}
 section.panel > p.note:first-of-type{margin-left:auto;margin-right:auto;text-align:center}
 /* stat rows: value · label · value, then a split bar; the leading value sits in a coloured pill */
 .stats{display:flex;flex-direction:column;gap:14px;margin-top:12px}
@@ -210,6 +221,35 @@ function setEmpty(msg){ emptyMsg = msg; const e = $("empty"); if (e){ e.hidden =
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const pct = v => v == null ? "–" : Math.round(v * 100) + "%";
+const hms = t => { const [h, mi, se] = String(t).split(":").map(Number); return h * 3600 + mi * 60 + (se || 0); };
+const mmss = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), mi = Math.floor(s % 3600 / 60), se = s % 60; return (h ? h + ":" + String(mi).padStart(2, "0") : mi) + ":" + String(se).padStart(2, "0"); };
+// game second -> link into the camera's recording on Sosyal Halısaha (starts a few seconds early)
+function vidAt(m, cam, gs, lead = 12){
+  const v = m.videos; if (!v || !v.start) return null;
+  const clock = hms(v.start) + gs - lead;
+  const f = (v.files || []).find(f => f.cam === cam && clock >= hms(f.from) - lead && clock < hms(f.to));
+  if (!f) return null;
+  const t = Math.max(0, clock - hms(f.from));
+  return {url: f.url + "#t=" + Math.round(t), at: mmss(t), file: f};
+}
+function videoPanel(m, colorOf){
+  const v = m.videos; if (!v) return "";
+  const cams = [...new Set((v.files || []).map(f => f.cam))].sort();
+  const btn = (cam, gs) => { const x = vidAt(m, cam, gs); return x ? `<a class="vbtn" href="${esc(x.url)}" target="_blank" rel="noopener" title="Kamera ${cam} kaydında ${x.at}">▶ Kamera ${cam} <span>${x.at}</span></a>` : ""; };
+  const goals = (m.goals || []).slice().sort((a, b) => a.t - b.t);
+  let h = `<section class="panel" id="videos"><h2>Maç videosu</h2>`;
+  if (goals.length){
+    h += `<h3 class="sub" style="margin:10px 0 4px">Goller</h3><ol class="glist">` + goals.map(g => {
+      const who = g.scorer ? esc(g.scorer) + (g.assist ? ` <span class="note">(asist ${esc(g.assist)})</span>` : "") : `<span class="note">${g.team ? "Gol" : "Olası gol"}</span>`;
+      return `<li><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="dot" style="background:${g.team ? colorOf(g.team) : "var(--mute)"}"></span><span class="gwho">${who}${g.auto ? ` <span class="lowc" title="Videodan otomatik bulundu, henüz kontrol edilmedi">~</span>` : ""}</span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span></li>`;
+    }).join("") + `</ol>`;
+    if (goals.some(g => g.auto)) h += `<p class="note" style="margin-top:6px">~ Gol anları videodan otomatik bulundu (top takibi ve santradan başlama). Dakika birkaç saniye kayabilir; bağlantı golden ~12 sn önce açılır.${m.goals_note ? " " + esc(m.goals_note) : ""}</p>`;
+  }
+  h += `<h3 class="sub" style="margin:12px 0 4px">Tam kayıtlar</h3><ul class="vlist">` +
+    (v.pages || []).map(p => `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.label)}</a> <span class="note">Sosyal Halısaha maç sayfası</span></li>`).join("") +
+    (v.files || []).map(f => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener">Kamera ${f.cam} · ${esc(f.from.slice(0, 5))}–${esc(f.to.slice(0, 5))}</a> <span class="note">${hms(f.from) <= hms(v.start) ? "maç kaydın " + mmss(hms(v.start) - hms(f.from)) + " anında başlıyor" : "maçın " + Math.floor((hms(f.from) - hms(v.start)) / 60) + ". dakikasından itibaren"}</span></li>`).join("") + `</ul></section>`;
+  return h;
+}
 const num = v => v == null ? "–" : v.toLocaleString("tr-TR");
 function ev(m, p){ return (m.events && m.events[p.name]) || {}; }
 function effRating(m, p){ const e = ev(m, p); return Math.min(10, p.rating + (e.goals || 0) * 1.0 + (e.assists || 0) * 0.5); }
@@ -445,7 +485,7 @@ function render(){
     const best = [...m.players].sort((x, y) => effRating(m, y) - effRating(m, x)).slice(0, 3);
     html += `<section class="panel"><h2>Maçın en iyileri</h2><div class="scroll"><table style="margin-top:8px"><tbody>` + best.map(p =>
       `<tr><td>${pl(p, "lg")}</td><td><span class="chip" style="background:${ratingColor(effRating(m, p))}">${effRating(m, p).toFixed(1)}</span></td><td>${num(distP(p))} m</td><td>${m.has_ball ? p.passes_ok + " isabetli pas" : ""}</td></tr>`).join("") + `</tbody></table></div></section>`;
-    html += `<section class="panel"><h2>Skor, gol ve asist</h2><div id="scoreArea" style="margin-top:8px"></div></section>
+    html += `<section class="panel"><h2>Skor, gol ve asist</h2><div id="scoreArea" style="margin-top:8px"></div></section>` + videoPanel(m, colorOf) + `
       <section class="panel"><h2>STATSports verisi</h2><div id="gpsArea" style="margin-top:8px"></div></section>`;
     html += `<section class="panel"><h2>Bu rakamlar ne kadar güvenilir?</h2><ul class="plain" style="margin-top:8px">
       <li>Mesafe, hız ve sprint tahmindir; oyuncular kıyafet rengine göre ayrıldığı için benzer giyinenler karışabilir.</li>
