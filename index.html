@@ -101,6 +101,13 @@ h3.sub{font:700 15px/1.2 var(--display);text-transform:uppercase;letter-spacing:
 .shotlist button[aria-pressed="true"] .mn{color:inherit}
 .shotlist .mk{width:12px;height:12px;border-radius:50%;border:2px solid currentColor}
 .shotlist .mk.on{background:currentColor}
+.shotlist .xgv{font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums;justify-self:end}
+.shotlist button[aria-pressed="true"] .xgv{color:inherit}
+.shotlist button{grid-template-columns:34px 1fr auto}
+.gpickw{flex-basis:100%;max-width:340px}
+.gpickw svg{cursor:crosshair}
+.gpickw summary{cursor:pointer}
+.pstory{margin:10px 0 0;font-size:14px;line-height:1.55;color:var(--ink)}
 @media (max-width:700px){ .shotmap{grid-template-columns:1fr 1fr} .shotmap .pitch{grid-column:1/-1;order:-1} }
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:10px}
 .form fieldset{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -188,9 +195,39 @@ section.panel > p.note:first-of-type{margin-left:auto;margin-right:auto;text-ali
 .chip{font:700 13px var(--body);border-radius:6px;min-width:34px;padding:3px 6px}
 tr.team td{font:700 13px var(--body)}
 th{text-transform:none;letter-spacing:0;font-size:12px}
+.thbtn{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+.thbtn:hover{color:var(--ink)}
+th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .heat b{font:700 14px var(--body)}
 .chips span{border-style:solid;background:var(--soft)}
 .ava{border-width:2px}
+.score .mid{max-width:min(240px,46vw)} .score .side{min-width:72px}
+/* minute range: two handles on one track, sticky under the tabs */
+#winbar{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 58px);z-index:4;background:var(--bg);padding-top:10px}
+#winbar .in{background:var(--surface);border-radius:16px;padding:10px 16px 12px;box-shadow:0 1px 3px rgba(34,34,38,.08)}
+.wtop{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.wlab{font:700 15px var(--body);font-variant-numeric:tabular-nums}
+.wlab small{font:500 12px var(--body);color:var(--mute);margin-left:6px}
+.wquick{display:flex;gap:6px;flex-wrap:wrap}
+.wquick button{font:600 12px var(--body);padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.wquick button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.wrange{position:relative;height:30px;margin-top:4px}
+.wrange .trk{position:absolute;left:0;right:0;top:13px;height:4px;border-radius:2px;background:var(--line)}
+.wrange .sel{position:absolute;top:13px;height:4px;border-radius:2px;background:var(--accent)}
+.wrange .gm{position:absolute;top:6px;width:2px;height:18px;border-radius:1px;transform:translateX(-1px)}
+.wrange input{position:absolute;left:0;width:100%;top:0;height:30px;margin:0;padding:0;border:0;background:none;-webkit-appearance:none;appearance:none;pointer-events:none}
+.wrange input::-webkit-slider-runnable-track{background:none;height:30px}
+.wrange input::-moz-range-track{background:none}
+.wrange input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:24px;height:24px;margin-top:3px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:grab}
+.wrange input::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:grab}
+.wticks{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);font-variant-numeric:tabular-nums}
+.wnote{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#eef1fe;color:var(--accent);font:600 11px var(--body);vertical-align:middle}
+.tenbars{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;align-items:end;height:110px;margin-top:8px}
+.tenbars div{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:11px;color:var(--mute)}
+.tenbars i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--accent)}
+.tenbars b{font:600 12px var(--body);color:var(--ink)}
+table.kv td{padding:6px 8px}
+table.kv td.prev{color:var(--mute);font-size:12px}
 </style>
 
 <header class="top gut"><div class="in">
@@ -211,6 +248,13 @@ th{text-transform:none;letter-spacing:0;font-size:12px}
   <button role="tab" data-tab="sutlar" id="tab-sutlar">Şutlar</button>
   <button role="tab" data-tab="hazirlik" id="tab-hazirlik">Maç öncesi</button>
 </div></nav>
+<div id="winbar" class="gut" hidden><div class="in">
+  <div class="wtop"><div class="wlab" id="wlab" aria-live="polite"></div><div class="wquick" id="wquick"></div></div>
+  <div class="wrange" id="wrange"><div class="trk"></div><div class="sel" id="wsel"></div><span id="wgm"></span>
+    <input type="range" id="wa" min="0" step="1" aria-label="Başlangıç dakikası">
+    <input type="range" id="wb" min="0" step="1" aria-label="Bitiş dakikası"></div>
+  <div class="wticks" id="wticks"></div>
+</div></div>
 <div id="pmodal" hidden></div>
 <main class="gut"><div class="in" id="view">
   <div class="empty" id="empty">Maç verileri yükleniyor…</div>
@@ -220,7 +264,9 @@ th{text-transform:none;letter-spacing:0;font-size:12px}
 const HEAT = ["#fff3b0","#ffe58a","#fed566","#fec24c","#fdaa3c","#fd9133","#fc7430","#f6552b","#d91f20","#a50424"];
 const TABS = ["ozet","dizilis","oyuncular","isi","paslar","sutlar","hazirlik"];
 let matches = [], current = null, tab = "ozet", passTeam = "all", db = null, canWrite = false;
+let plSort = {col: null, dir: -1};
 let shotSel = null, shotPlayer = "", setupDate = null, emptyMsg = "Maç verileri yükleniyor…";
+let win = null;   // {a, b}: the chosen minutes [a, b) of the current match; null = whole match
 function setEmpty(msg){ emptyMsg = msg; const e = $("empty"); if (e){ e.hidden = false; e.textContent = msg; } }
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -240,15 +286,16 @@ function parseMin(v){ const t = String(v || "").trim(); if (!t) return null; con
 async function saveGoal(m, box){
   const f = k => (box.querySelector(`[data-f="${k}"]`) || {}).value || "";
   const msg = box.querySelector("[data-gmsg]"), goals = (m.goals || []).map(g => ({...g}));
-  const scorer = f("scorer"), assist = f("assist"), t = parseMin(f("t"));
+  const scorer = f("scorer"), assist = f("assist"), t = parseMin(f("t")), xy = box.dataset.xy ? JSON.parse(box.dataset.xy) : null;
   const team = (m.players.find(q => q.name === scorer) || {}).team || null;
   if (box.dataset.gi === "new"){
     if (t == null || !scorer){ msg.textContent = "Dakika ve golü atanı seçin."; return; }
-    goals.push({t, auto: false, verdict: "yes", scorer, assist: assist || null, team});
+    goals.push({t, auto: false, verdict: "yes", scorer, assist: assist || null, team, ...(xy ? {from_xy: xy} : {})});
   } else {
     const g = goals[+box.dataset.gi], verdict = f("verdict") || (scorer ? "yes" : "");
     Object.assign(g, {verdict: verdict || null, scorer: verdict === "no" ? null : (scorer || null), assist: verdict === "no" ? null : (assist || null), team: verdict === "no" ? null : team});
     if (t != null) g.t = t;
+    if (xy) g.from_xy = xy;
   }
   // keep the score and goal/assist counts in step with the confirmed goals
   const yes = goals.filter(g => g.verdict === "yes" && g.scorer), patch = {goals};
@@ -259,28 +306,35 @@ async function saveGoal(m, box){
   try { await db.doc("matches/" + m.id).update(patch); m.goals = goals; if (patch.events) m.events = patch.events; msg.textContent = "Kaydedildi."; render(); }
   catch (e) { msg.textContent = "Kaydedilemedi: bu sayfada yazma izniniz yok."; }
 }
+// a small pitch inside the goal editor: tap where the goal was shot from (feeds the shot map and xG)
+function gpick(m, xy){
+  const L = m.pitch[0], W = m.pitch[1];
+  const svg = pitchSvg(L, W, `<circle data-gmark cx="${xy ? xy[0] : 0}" cy="${xy ? xy[1] : 0}" r="0.9" fill="var(--ink)" opacity="${xy ? 1 : 0}"/>`).replace("<svg ", '<svg data-gpick aria-label="Şutun atıldığı yeri sahada işaretleyin" ');
+  return `<details class="gpickw"${xy ? "" : ""}><summary class="note">Şut yeri${xy ? ` · <span data-gxy>xG ${f2(xgOf(xy[0], xy[1], L, W, xy[0] < L / 2 ? 0 : L))}</span>` : ` · <span data-gxy>işaretle</span>`}</summary><div class="note">Sahaya dokunun</div>${svg}</details>`;
+}
 function videoPanel(m, colorOf){
   const v = m.videos; if (!v) return "";
   const cams = [...new Set((v.files || []).map(f => f.cam))].sort();
   const btn = (cam, gs) => { const x = vidAt(m, cam, gs); return x ? `<a class="vbtn" href="${esc(x.url)}" target="_blank" rel="noopener" title="Kamera ${cam} kaydında ${x.at}">▶ Kamera ${cam} <span>${x.at}</span></a>` : ""; };
   const allGoals = (m.goals || []).map((g, i) => ({...g, i})).sort((a, b) => a.t - b.t);
-  const goals = canWrite ? allGoals : allGoals.filter(g => g.verdict !== "no");
+  const goals = canWrite && !m._win ? allGoals : allGoals.filter(g => g.verdict !== "no");
   let h = `<section class="panel" id="videos"><h2>Maç videosu</h2>`;
   if (goals.length){
     h += `<h3 class="sub" style="margin:10px 0 4px">${goals.every(g => g.auto && !g.verdict) ? "Olası gol anları" : "Goller"}</h3><ol class="glist">` + goals.map(g => {
       const who = g.scorer ? esc(g.scorer) + (g.assist ? ` <span class="note">(asist ${esc(g.assist)})</span>` : "") : `<span class="note">${g.team || g.verdict === "yes" ? "Gol" : "Olası gol"}</span>`;
       const opts = (sel, team) => `<option value="">–</option>` + m.players.filter(q => !team || q.team === team).map(q => `<option${q.name === sel ? " selected" : ""}>${esc(q.name)}</option>`).join("");
       const sTeam = (m.players.find(q => q.name === g.scorer) || {}).team;
-      const edit = canWrite ? `<div class="gedit" data-gi="${g.i}">
+      const edit = canWrite && !m._win ? `<div class="gedit" data-gi="${g.i}">
         <select data-f="verdict" aria-label="Gol mü?"><option value=""${!g.verdict ? " selected" : ""}>Gol mü?</option><option value="yes"${g.verdict === "yes" ? " selected" : ""}>Gol</option><option value="no"${g.verdict === "no" ? " selected" : ""}>Gol değil</option></select>
         <select data-f="scorer" aria-label="Golü atan">${opts(g.scorer).replace('<option value="">–</option>', '<option value="">Golü atan</option>')}</select>
         <select data-f="assist" aria-label="Asist">${opts(g.assist, sTeam).replace('<option value="">–</option>', '<option value="">Asist yok</option>')}</select>
         <label class="note">dk <input data-f="t" type="text" inputmode="numeric" value="${mmss(g.t)}" aria-label="Maç dakikası (dk:sn)" style="width:62px"></label>
+        ${g.verdict !== "no" ? gpick(m, g.from_xy) : ""}
         <button type="button" data-gsave>Kaydet</button><span class="note" role="status" data-gmsg></span></div>` : "";
       if (g.verdict === "no") return `<li class="gno"><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="gwho note"><s>Gol değil</s></span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span>${edit}</li>`;
       return `<li><span class="gmin">${Math.floor(g.t / 60) + 1}'</span><span class="dot" style="background:${g.team ? colorOf(g.team) : "var(--mute)"}"></span><span class="gwho">${who}${g.auto && !g.verdict ? ` <span class="lowc" title="Videodan otomatik bulundu, henüz kontrol edilmedi">~</span>` : ""}</span><span class="gbtns">${cams.map(c => btn(c, g.t)).join("")}</span>${edit}</li>`;
     }).join("") + `</ol>`;
-    if (canWrite) h += `<div class="gedit" style="margin-top:8px" data-gi="new"><span class="note">Listede olmayan bir gol:</span><label class="note">dk <input data-f="t" type="text" inputmode="numeric" placeholder="12:30" aria-label="Maç dakikası (dk:sn)" style="width:62px"></label><select data-f="scorer" aria-label="Golü atan"><option value="">Golü atan</option>${m.players.map(q => `<option>${esc(q.name)}</option>`).join("")}</select><select data-f="assist" aria-label="Asist"><option value="">Asist yok</option>${m.players.map(q => `<option>${esc(q.name)}</option>`).join("")}</select><button type="button" data-gsave>Gol ekle</button><span class="note" role="status" data-gmsg></span></div>`;
+    if (canWrite && !m._win) h += `<div class="gedit" style="margin-top:8px" data-gi="new"><span class="note">Listede olmayan bir gol:</span><label class="note">dk <input data-f="t" type="text" inputmode="numeric" placeholder="12:30" aria-label="Maç dakikası (dk:sn)" style="width:62px"></label><select data-f="scorer" aria-label="Golü atan"><option value="">Golü atan</option>${m.players.map(q => `<option>${esc(q.name)}</option>`).join("")}</select><select data-f="assist" aria-label="Asist"><option value="">Asist yok</option>${m.players.map(q => `<option>${esc(q.name)}</option>`).join("")}</select>${gpick(m, null)}<button type="button" data-gsave>Gol ekle</button><span class="note" role="status" data-gmsg></span></div>`;
     if (goals.some(g => g.auto && !g.verdict)) h += `<p class="note" style="margin-top:6px">~ Bu anlar videodan otomatik bulundu: kale ağzında biten top uçuşları ve oyuncuların yavaşlayıp santraya döndüğü anlar. Her biri gol olmayabilir; bağlantı o andan ~12 sn önce açılır.${m.goals_note ? " " + esc(m.goals_note) : ""}</p>`;
   }
   h += `<h3 class="sub" style="margin:12px 0 4px">Tam kayıtlar</h3><ul class="vlist">` +
@@ -290,12 +344,32 @@ function videoPanel(m, colorOf){
 }
 const num = v => v == null ? "–" : v.toLocaleString("tr-TR");
 function ev(m, p){ return (m.events && m.events[p.name]) || {}; }
-function effRating(m, p){ const e = ev(m, p); return Math.min(10, p.rating + (e.goals || 0) * 1.0 + (e.assists || 0) * 0.5); }
+// Top kapma +0,15 and top kaybı -0,15 each (up to 1,0 either way). Matches written before
+// rating_v 2 used +0,08 / -0,06 (up to 0,6): swap those terms here so every match counts them the same.
+function ballTerm(p, gain, loss, cap){ return Math.min(cap, gain * (p.interceptions || 0)) - Math.min(cap, loss * (p.losses || 0)); }
+function baseRating(m, p){ return (m.has_ball && !(m.rating_v >= 2)) ? p.rating - ballTerm(p, 0.08, 0.06, 0.6) + ballTerm(p, 0.15, 0.15, 1.0) : p.rating; }
+function effRating(m, p){ const e = ev(m, p); return Math.max(3, Math.min(10, baseRating(m, p) + (e.goals || 0) * 1.0 + (e.assists || 0) * 0.5)); }
 // STATSports calibration: the vest wearer's real distance divided by their camera metres per tracked
 // minute. Every player's camera pace (m per tracked minute) times this gives a full-game distance,
 // so players the cameras followed less are not penalised.
-function gpsFactor(m){ const g = m.gps; if (!g || !g.player || !g.distance_m) return null;
-  const p = m.players.find(q => q.name === g.player); return p && p.distance_m > 0 && p.minutes > 0 ? g.distance_m / (p.distance_m / p.minutes) : null; }
+function gpsFactor(m){ const full = m._full || m, g = full.gps; if (!g || !g.player || !(g.game_distance_m || g.distance_m)) return null;
+  const p = full.players.find(q => q.name === g.player); if (!(p && p.distance_m > 0 && p.minutes > 0)) return null;
+  const f = (g.game_distance_m || g.distance_m) / (p.distance_m / p.minutes);
+  return m._full ? f * m.minutes / (full.minutes || m.minutes) : f; }
+// Every player's STATSports-style numbers, scaled from the vest wearer: the wearer's vest figure times
+// (player's camera rate per tracked minute in that speed band / wearer's whole-match camera rate),
+// spread over the minutes shown. Camera speeds read low, so bands are compared, not read as km/h.
+function vestEst(m, p){
+  const full = m._full || m, g = full.gps, T = full.tl; if (!g || !T || !T.players[g.player] || !T.players[p.name]) return null;
+  const sum = (arr, a, b) => { let s = 0; for (let i = a; i < b; i++) s += arr[i] || 0; return s; };
+  const w = T.players[g.player], q = T.players[p.name], n = T.n, a = win && m._full ? win.a : 0, b = win && m._full ? win.b : n;
+  const wMin = sum(w.s, 0, n) / 60, qMin = sum(q.s, a, b) / 60; if (wMin < 1 || qMin < 0.5) return null;
+  const share = (b - a) / (full.minutes || n);
+  const r = k => (sum(q[k], a, b) / qMin) / Math.max(1e-6, sum(w[k], 0, n) / wMin);
+  const est = (val, k) => val == null ? null : val * r(k) * share;
+  return {hid_m: est(g.hid_m, "h"), hsr_m: est(g.hsr_m, "v"), sprint_m: est(g.sprint_m, "v"), sprints: est(g.sprints, "v"),
+    accelerations: est(g.accelerations, "h"), decelerations: est(g.decelerations, "h")};
+}
 function ava(p, cls){ const c = p.team && current && current.teams[0] && p.team === current.teams[0].name ? "var(--home)" : "var(--away)";
   return p.photo ? `<img class="ava ${cls || ""}" src="${esc(p.photo)}" alt="" style="border-color:${c}" loading="lazy">`
     : `<span class="ava none ${cls || ""}" style="border-color:${c}" aria-hidden="true">${esc((p.name || "?").slice(0, 1))}</span>`; }
@@ -310,7 +384,10 @@ function openPlayer(name){
   const kmh = F0 ? distP(p) / 1000 / ((m.minutes || 60) / 60) : p.avg_kmh;
   const tiles = [["Gol", e.goals || 0], ["Asist", e.assists || 0], ["Mesafe", num(distP(p)) + " m"], ["Ort. hız", kmh.toFixed(1) + " km/sa"],
     ["Sprint", p.sprints], ["Kamerada", Math.round(p.minutes) + " dk"]];
-  if (m.has_ball) tiles.push(["Pas", `${p.passes_ok}/${p.passes}`], ["Dokunuş", p.touches], ["Top kapma", p.interceptions], ["Top kaybı", p.losses], ["Şut", p.shots || 0]);
+  const ve = vestEst(m, p);
+  if (ve) tiles.push(["HID (tahmini)", num(Math.round(ve.hid_m || 0)) + " m"], ["HSR (tahmini)", num(Math.round(ve.hsr_m || 0)) + " m"], ["Sprint mes. (tahmini)", num(Math.round(ve.sprint_m || 0)) + " m"]);
+  const myShots = allShots(m).shots.filter(s => s.who === p.name);
+  if (m.has_ball) tiles.push(["Pas", `${p.passes_ok}/${p.passes}`], ["Dokunuş", p.touches], ["Top kapma", p.interceptions], ["Top kaybı", p.losses], ["Şut", myShots.length], ["xG", f2(xgSum(myShots))]);
   const th = p.thirds || [0, 0, 0];
   const [x, y] = p.pos || [L / 2, W / 2];
   const posMark = `<circle cx="${x}" cy="${y}" r="1.6" fill="${c}" stroke="var(--surface)" stroke-width="0.4"/>`;
@@ -320,8 +397,9 @@ function openPlayer(name){
     <button type="button" class="pclose" aria-label="Kapat">×</button>
     <div class="phead">${ava(p, "xl")}<div><div class="pname">${esc(p.name)}</div><div class="note"><span class="dot" style="background:${c}"></span>${esc(p.team)} · takımda ${rank}. en iyi</div></div>
       <span class="chip big" style="background:${ratingColor(r)}">${r.toFixed(1)}</span></div>
+    ${m._win ? `<p class="note" style="margin:8px 0 0">${m._win.a}'–${m._win.b}' arası gösteriliyor.</p>` : ""}<h3 class="sub">Maç yorumu</h3><p class="pstory">${esc(playerStory(m, p, F0, distP))}</p>
     <div class="ptiles">${tiles.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join("")}</div>
-    ${p.rating_run != null ? `<p class="note" style="margin:8px 0 0">Puan ${r.toFixed(1)} = koşu ${p.rating_run.toFixed(1)}${m.has_ball ? ` ${p.rating_ball < 0 ? "−" : "+"} top verisi ${Math.abs(p.rating_ball).toFixed(1)}` : ""}${(e.goals || e.assists) ? ` + gol/asist ${((e.goals || 0) + (e.assists || 0) * 0.5).toFixed(1)}` : ""}${r >= 10 ? " (en fazla 10)" : ""}. Top verisi: isabetli pas, pas isabeti, dokunuş, top kapma, top kaybı ve şut.</p>` : ""}
+    ${p.rating_run != null ? `<p class="note" style="margin:8px 0 0">Puan ${r.toFixed(1)} = koşu ${p.rating_run.toFixed(1)}${m.has_ball ? (b => ` ${b < 0 ? "−" : "+"} top verisi ${Math.abs(b).toFixed(1)}`)(p.rating_ball + baseRating(m, p) - p.rating) : ""}${(e.goals || e.assists) ? ` + gol/asist ${((e.goals || 0) + (e.assists || 0) * 0.5).toFixed(1)}` : ""}${r >= 10 ? " (en fazla 10)" : ""}. Top verisi: isabetli pas, pas isabeti, dokunuş, top kapma, top kaybı ve şut.</p>` : ""}
     ${lowc ? `<p class="note" style="margin:8px 0 0">~ Bu takımın oyuncu bazında koşu verisi yaklaşık.${m.blend_note ? " " + esc(m.blend_note) + "." : ""}</p>` : ""}
     <h3 class="sub">Isı haritası</h3>${pitchSvg(L, W, heatCells(p, L, W))}
     <h3 class="sub">Ortalama konum ve saha bölgeleri</h3>${pitchSvg(L, W, posMark)}
@@ -333,8 +411,115 @@ function openPlayer(name){
 function closePlayer(){ const el = document.getElementById("pmodal"); if (!el || el.hidden) return; el.hidden = true; el.innerHTML = ""; document.body.style.overflow = ""; }
 function ratingColor(r){ return r >= 9 ? "#374df5" : r >= 8 ? "#00adc4" : r >= 7 ? "#00c424" : r >= 6.5 ? "#d9af00" : r >= 6 ? "#ed7e07" : "#dc0c00"; }
 
+// ---- minute range: the same match, counted only between minutes a and b (from match.tl, written by `stats`)
+const binSum = (arr, a, b) => { let s = 0; for (let i = a; i < b; i++) s += (arr && arr[i]) || 0; return s; };
+function ballBonus(r){
+  const known = r.passes || 0;
+  let x = Math.min(0.8, 0.02 * (r.passes_ok || 0)) + Math.min(0.5, 0.01 * (r.touches || 0));
+  x += Math.min(1.0, 0.15 * (r.interceptions || 0)) - Math.min(1.0, 0.15 * (r.losses || 0));
+  if (known >= 5) x += Math.max(-0.4, Math.min(0.4, 0.5 * ((r.passes_ok || 0) / known - 0.7)));
+  return x + Math.min(0.6, 0.15 * (r.shots || 0) + 0.15 * (r.shots_on || 0));
+}
+function windowed(m){
+  const T = m.tl; if (!T || !win || (win.a <= 0 && win.b >= T.n)) return m;
+  const a = win.a, b = win.b, L = m.pitch[0], W = m.pitch[1], t0 = m.start_s || 0, nx = T.nx, ny = T.ny;
+  const inW = gs => gs >= a * 60 && gs < b * 60;
+  const passes = (m.passes || []).filter(p => inW(p.t - t0)), shots = (m.shots || []).filter(s => inW(s.t - t0));
+  const goals = (m.goals || []).map(g => ({...g, _in: inW(g.t)}));
+  const tagged = goals.filter(g => g.verdict === "yes" && g.scorer);
+  const total = m.score ? Object.values(m.score).reduce((x, y) => x + (+y || 0), 0) : 0;
+  const goalsKnown = total > 0 && tagged.length === total;
+  const events = {};
+  if (goalsKnown) for (const g of tagged.filter(g => g._in)){ (events[g.scorer] ||= {goals: 0, assists: 0}).goals++; if (g.assist) (events[g.assist] ||= {goals: 0, assists: 0}).assists++; }
+  const players = m.players.map(p => {
+    const q = T.players[p.name] || {}, secs = binSum(q.s, a, b), d = binSum(q.d, a, b);
+    const grid = Array.from({length: ny}, () => new Array(nx).fill(0));
+    let cx = 0, cy = 0, cn = 0; const th = [0, 0, 0];
+    for (let i = a; i < b; i++){ const c = (q.c || [])[i] || [];
+      for (let k = 0; k < c.length; k += 2){ const cell = c[k], cnt = c[k + 1], gx = cell % nx, gy = Math.floor(cell / nx);
+        grid[gy][gx] += cnt; const x = (gx + 0.5) / nx * L; cx += x * cnt; cy += (gy + 0.5) / ny * W * cnt; cn += cnt;
+        th[x < L / 3 ? 0 : x < 2 * L / 3 ? 1 : 2] += cnt; } }
+    // a light blur, then 0-9 against the player's own busiest cell, like the whole-match maps
+    const bl = grid.map((row, y) => row.map((_, x) => { let s = 0, wsum = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){ const yy = y + dy, xx = x + dx; if (yy < 0 || yy >= ny || xx < 0 || xx >= nx) continue; const w = dx || dy ? 0.5 : 1; s += grid[yy][xx] * w; wsum += w; }
+      return s / wsum; }));
+    const peak = Math.max(1e-9, ...bl.flat());
+    const mine = passes.filter(x => x.from === p.name), rec = passes.filter(x => x.to === p.name);
+    const sh = shots.filter(x => x.who === p.name);
+    const touches = binSum(q.tc, a, b);
+    return {...p, minutes: secs / 60, distance_m: Math.round(d), avg_kmh: secs ? 3.6 * d / secs : 0, sprints: binSum(q.sp, a, b),
+      passes: mine.length, passes_ok: mine.filter(x => x.ok).length, pass_accuracy: mine.length ? mine.filter(x => x.ok).length / mine.length : null,
+      losses: mine.filter(x => !x.ok).length, interceptions: rec.filter(x => !x.ok).length, receptions: rec.filter(x => x.ok).length,
+      touches, ball_seconds: p.touches ? Math.round((p.ball_seconds || 0) * touches / p.touches) : 0, shots: sh.length, shots_on: sh.filter(x => x.on_target).length,
+      thirds: cn ? th.map(v => v / cn) : [0, 0, 0], pos: cn ? [cx / cn, cy / cn] : p.pos,
+      heat: cn ? bl.map(row => row.map(v => Math.round(9 * v / peak))) : grid, _hs: binSum(q.h, a, b)};
+  });
+  // the rating, counted the same way over the chosen minutes
+  const paces = players.filter(p => p.minutes >= 1).map(p => p.distance_m / p.minutes);
+  const mean = paces.reduce((x, y) => x + y, 0) / (paces.length || 1);
+  const sd = Math.sqrt(paces.reduce((x, y) => x + (y - mean) ** 2, 0) / (paces.length || 1)) || 1;
+  for (const p of players){ const pm = p.minutes >= 1 ? p.distance_m / p.minutes : mean;
+    p.rating_run = 6 + Math.max(-0.6, Math.min(0.6, 0.25 * (pm - mean) / sd));
+    p.rating_ball = m.has_ball ? ballBonus(p) : 0;
+    p.rating = Math.max(3, Math.min(10, p.rating_run + p.rating_ball)); }
+  const pos = T.possession || {}, posTot = Object.values(pos).reduce((s, v) => s + binSum(v, a, b), 0);
+  const teams = m.teams.map(t => { const tp = players.filter(p => p.team === t.name), ok = tp.reduce((s, p) => s + p.passes_ok, 0), all = tp.reduce((s, p) => s + p.passes, 0);
+    const S = k => tp.reduce((s, p) => s + (p[k] || 0), 0);
+    return {...t, possession: posTot ? binSum(pos[t.name], a, b) / posTot : null, distance_m: S("distance_m"), passes: all, passes_ok: ok,
+      pass_accuracy: all ? ok / all : null, touches: S("touches"), interceptions: S("interceptions"), losses: S("losses"), sprints: S("sprints"),
+      rating: tp.length ? tp.reduce((s, p) => s + p.rating, 0) / tp.length : t.rating}; });
+  let report = m.report;
+  if (report && report.team && report.attacks_right){
+    const team = {};
+    for (const t of m.teams){ const tp = players.filter(p => p.team === t.name), right = !!report.attacks_right[t.name];
+      let tot = 0, att = 0, def = 0, opp = 0, box = 0, secs = 0, dist = 0, hs = 0;
+      for (const p of tp){ const q = T.players[p.name] || {}; secs += binSum(q.s, a, b); dist += p.distance_m; hs += p._hs;
+        for (let i = a; i < b; i++){ const c = (q.c || [])[i] || [];
+          for (let k = 0; k < c.length; k += 2){ const gx = c[k] % nx, gy = Math.floor(c[k] / nx), x = (gx + 0.5) / nx * L, y = (gy + 0.5) / ny * W, n = c[k + 1];
+            const fx = right ? x : L - x; tot += n; if (fx >= 2 * L / 3) att += n; if (fx < L / 3) def += n; if (fx >= L / 2) opp += n;
+            if (fx >= L - 6.1 && Math.abs(y - W / 2) <= 6.5) box += n; } } }
+      team[t.name] = {...report.team[t.name], attacking_third_pct: tot ? 100 * att / tot : null, defensive_third_pct: tot ? 100 * def / tot : null,
+        opp_half_pct: tot ? 100 * opp / tot : null, box_s: box, distance_per_min: secs ? dist / (secs / 60) : null, high_speed_m: hs, tracked_min: secs / 60,
+        width_m: null, length_m: null, line_m: null}; }
+    const n0 = m.teams[0] && team[m.teams[0].name], n1 = m.teams[1] && team[m.teams[1].name];
+    if (n0 && n1){ const s0 = n0.attacking_third_pct || 0, s1 = n1.attacking_third_pct || 0; n0.field_tilt_pct = s0 + s1 ? 100 * s0 / (s0 + s1) : null; n1.field_tilt_pct = s0 + s1 ? 100 * s1 / (s0 + s1) : null; }
+    report = {...report, team, momentum: (report.momentum || []).slice(a, b), momentum_offset: a, windowed: true};
+  }
+  return {...m, _full: m, rating_v: 2, players, teams, passes, shots, report, minutes: b - a, events: goalsKnown ? events : {},
+    goals: goals.filter(g => g._in).map(({_in, ...g}) => g), _win: {a, b, goalsKnown}};
+}
+function winGoals(m, a, b){
+  const tagged = (m.goals || []).filter(g => g.verdict === "yes" && g.team && g.t >= a * 60 && g.t < b * 60), out = {};
+  for (const t of m.teams) out[t.name] = tagged.filter(g => g.team === t.name).length;
+  return tagged.length ? out : null;
+}
+function renderWinbar(){
+  const bar = $("winbar"), m = current, T = m && m.tl;
+  if (!T || tab === "hazirlik"){ bar.hidden = true; return; }
+  bar.hidden = false;
+  const n = T.n, A = $("wa"), B = $("wb");
+  if (!win) win = {a: 0, b: n};
+  A.max = B.max = n; A.value = win.a; B.value = win.b;
+  const full = win.a <= 0 && win.b >= n, half = Math.round(n / 2);
+  const wg = winGoals(m, win.a, win.b), H = m.teams[0], Aw = m.teams[1];
+  $("wlab").innerHTML = full ? `Tüm maç <small>0'–${n}' · tutamaçları sürükleyip bir dakika aralığı seçin</small>`
+    : `${win.a}'–${win.b}' <small>${win.b - win.a} dk${wg && Aw ? ` · bu aralıkta ${esc(H.name)} ${wg[H.name]}-${wg[Aw.name]} ${esc(Aw.name)}` : ""}</small>`;
+  const q = [["Tüm maç", 0, n], ["1. yarı", 0, half], ["2. yarı", half, n], ["İlk 15", 0, Math.min(15, n)], ["Son 15", Math.max(0, n - 15), n]];
+  $("wquick").innerHTML = q.map(([l, x, y]) => `<button type="button" data-w="${x},${y}" aria-pressed="${win.a === x && win.b === y}">${l}</button>`).join("");
+  $("wsel").style.left = (100 * win.a / n) + "%"; $("wsel").style.width = (100 * (win.b - win.a) / n) + "%";
+  // goal marks on the track
+  $("wgm").innerHTML = (m.goals || []).filter(g => g.verdict === "yes" || (g.auto && !g.verdict)).map(g =>
+    `<i class="gm" style="left:${(100 * Math.min(n, g.t / 60) / n).toFixed(2)}%;background:${g.team ? (g.team === H.name ? "var(--home)" : "var(--away)") : "var(--mute)"}" title="${Math.floor(g.t / 60) + 1}' ${esc(g.scorer || "gol")}"></i>`).join("");
+  const step = n > 40 ? 10 : 5, ticks = []; for (let i = 0; i <= n; i += step) ticks.push(i); if (ticks[ticks.length - 1] !== n) ticks.push(n);
+  $("wticks").innerHTML = ticks.map(t => `<span>${t}'</span>`).join("");
+}
+let winRaf = 0;
+function setWin(a, b){
+  const n = current && current.tl ? current.tl.n : 0; a = Math.max(0, Math.min(n - 1, a)); b = Math.max(a + 1, Math.min(n, b));
+  win = {a, b}; shotSel = null; cancelAnimationFrame(winRaf); winRaf = requestAnimationFrame(render);
+}
 function setTab(t){ tab = TABS.includes(t) ? t : "ozet"; render(); }
-function pickMatch(id){ current = matches.find(m => m.id === id) || matches[0] || null; shotSel = null; shotPlayer = ""; render(); }
+function pickMatch(id){ current = matches.find(m => m.id === id) || matches[0] || null; shotSel = null; shotPlayer = ""; win = null; render(); }
 
 function pitchSvg(L, W, inner){
   const bw = 13, bd = 6.1, b0 = (W - bw) / 2;
@@ -390,45 +575,130 @@ function reportHtml(m, H, A){
   const R = m.report; if (!R || !A || !R.team || !R.team[H.name] || !R.team[A.name]) return "";
   const a = R.team[H.name], b = R.team[A.name];
   const carPark = R.attacks_right && R.attacks_right[H.name] ? H.name : A.name;
-  let h = `<section class="panel"><h2>Maç istatistikleri</h2><p class="note" style="margin-top:6px">İki kameranın birleştirilmiş konumlarından. ${esc(carPark)} otopark tarafındaki kaleyi savundu.${R.named ? "" : " Takımlar forma renginden tahmin edildi."}</p>`;
+  let h = `<section class="panel"><h2>Maç istatistikleri</h2><p class="note" style="margin-top:6px">${m.cameras && m.cameras.length > 1 ? "İki kameranın birleştirilmiş konumlarından." : "Kamera konumlarından."} ${esc(carPark)} otopark tarafındaki kaleyi savundu.${R.named ? "" : " Takımlar forma renginden tahmin edildi."}${R.windowed ? " Takım şekli yalnızca tüm maç için hesaplanır." : ""}</p>`;
   for (const [title, rows] of REPORT_GROUPS) h += `<h3 class="sub">${title}</h3>` + cmpRows(rows, a, b);
-  h += `<div class="chips"><span>xG · top takibi gerekiyor</span><span>Kurtarış · olay girişi gerekiyor</span><span>İkili mücadele · top takibi gerekiyor</span><span>Faul, korner, kart, ofsayt · olay girişi gerekiyor</span><span>En yüksek hız, sprint · daha kararlı konum gerekiyor</span></div></section>`;
+  h += `<div class="chips"><span>Kurtarış · olay girişi gerekiyor</span><span>İkili mücadele · top takibi gerekiyor</span><span>Faul, korner, kart, ofsayt · olay girişi gerekiyor</span><span>En yüksek hız, sprint · daha kararlı konum gerekiyor</span></div></section>`;
   // territory minute by minute
   const sign = R.teams[0] === H.name ? 1 : -1, vals = (R.momentum || []).map(v => v * sign);
   if (vals.length){
     const n = vals.length, w = Math.max(560, n * 18), hh = 150, mid = hh / 2, bw = (w - 40) / n, max = Math.max(20, ...vals.map(Math.abs));
     let bars = `<line x1="30" x2="${w - 6}" y1="${mid}" y2="${mid}" stroke="var(--line)"/>`;
     vals.forEach((v, i) => { const y = Math.abs(v) / max * (mid - 8);
-      bars += `<rect x="${32 + i * bw}" width="${Math.max(2, bw - 3)}" y="${v >= 0 ? mid - y : mid}" height="${Math.max(1, y)}" rx="2" fill="${v >= 0 ? "var(--home)" : "var(--away)"}"><title>${i + 1}. dk: ${v >= 0 ? esc(H.name) : esc(A.name)} ${Math.abs(v)}</title></rect>`;
-      if (i % 5 === 0) bars += `<text x="${32 + i * bw}" y="${hh + 14}" font-size="11" fill="var(--mute)">${i}'</text>`; });
+      const mn = i + (R.momentum_offset || 0);
+      bars += `<rect x="${32 + i * bw}" width="${Math.max(2, bw - 3)}" y="${v >= 0 ? mid - y : mid}" height="${Math.max(1, y)}" rx="2" fill="${v >= 0 ? "var(--home)" : "var(--away)"}"><title>${mn + 1}. dk: ${v >= 0 ? esc(H.name) : esc(A.name)} ${Math.abs(v)}</title></rect>`;
+      if (mn % 5 === 0) bars += `<text x="${32 + i * bw}" y="${hh + 14}" font-size="11" fill="var(--mute)">${mn}'</text>`; });
     h += `<section class="panel"><h2>Dakika dakika saha hakimiyeti</h2><p class="note" style="margin-top:6px">Çizginin üstü: o dakika ${esc(H.name)} hücum üçte birinde daha çok zaman geçirdi; altı: ${esc(A.name)}. Topa değil, oyuncuların durduğu yere göre.</p>
       <div class="scroll" style="margin-top:8px"><svg viewBox="0 0 ${w} ${hh + 18}" width="${w}" height="${hh + 18}" style="width:${w}px;max-width:none" role="img" aria-label="Dakika dakika saha hakimiyeti">${bars}</svg></div></section>`;
   }
   return h;
 }
 
-// ---- shot map (match.shots, written by `shs_analyze.py stats`)
+// ---- shots and xG. Shots come from the ball finder (match.shots) and from confirmed goals
+// (match.goals with verdict "yes"). A goal within 6 s of a detected shot by the same team is
+// that shot; a goal without a detected shot counts once its spot is marked on the goal list.
+// xG: a simple distance-and-angle model scaled for 5 m halısaha goals, not trained on data:
+// about 0.45 from 3 m in front of goal, 0.25 from 6 m, 0.07 from 15 m.
+const GOAL_W = 5;
+function xgOf(x, y, L, W, goalX){
+  const dx = Math.max(0.3, Math.abs(x - goalX)), d = Math.hypot(x - goalX, y - W / 2);
+  const ang = Math.abs(Math.atan2(W / 2 + GOAL_W / 2 - y, dx) - Math.atan2(W / 2 - GOAL_W / 2 - y, dx));
+  return 1 / (1 + Math.exp(-(-1.08 + 0.88 * ang - 0.12 * d)));
+}
+function allShots(m){
+  const L = m.pitch[0], W = m.pitch[1], t0 = m.start_s || 0;
+  const goals = (m.goals || []).map((g, gi) => ({...g, gi})).filter(g => g.verdict === "yes");
+  const used = new Set(), out = [];
+  (m.shots || []).forEach((s, i) => {
+    const gs = s.t - t0, goalX = (s.goal === "left" || s.to_xy[0] < L / 2) ? 0 : L;
+    const g = goals.find(g => !used.has(g.gi) && Math.abs(g.t - gs) <= 6 && (!g.team || g.team === s.team));
+    if (g) used.add(g.gi);
+    out.push({key: "s" + i, t: gs, who: (g && g.scorer) || s.who, team: (g && g.team) || s.team, from: s.from_xy, to: s.to_xy, goalX,
+      on: !!(s.on_target || g), goal: !!g, gi: g ? g.gi : null});
+  });
+  let unplaced = 0;
+  for (const g of goals){
+    if (used.has(g.gi)) continue;
+    if (!g.from_xy){ unplaced++; continue; }
+    const goalX = g.from_xy[0] < L / 2 ? 0 : L;
+    out.push({key: "g" + g.gi, t: g.t, who: g.scorer, team: g.team, from: g.from_xy, to: [goalX, W / 2], goalX, on: true, goal: true, gi: g.gi, marked: true});
+  }
+  for (const s of out){ s.xg = xgOf(s.from[0], s.from[1], L, W, s.goalX); s.min = Math.floor(Math.max(0, s.t) / 60) + 1; }
+  out.sort((a, b) => a.t - b.t);
+  return {shots: out, unplaced};
+}
+const xgSum = list => list.reduce((a, s) => a + s.xg, 0);
+const f2 = v => v.toFixed(2).replace(".", ",");
+function shotCam(m, s){ return s.goalX === 0 ? 2 : 1; }      // camera 2 stands behind the car-park goal (x = 0)
+function shotVideo(m, s){
+  const cams = [shotCam(m, s), 3 - shotCam(m, s)];
+  for (const c of cams){ const x = vidAt(m, c, s.t); if (x) return `<a class="vbtn" href="${esc(x.url)}" target="_blank" rel="noopener" title="Kamera ${c} kaydında ${x.at}">▶ İzle <span>kamera ${c}, ${x.at}</span></a>`; }
+  return "";
+}
+let shotFilter = "all";
 function shotsHtml(m, H, A, L, W, colorOf){
-  if (!m.has_ball) return `<section class="panel"><h2>Şut haritası</h2><p class="note" style="margin-top:8px">Bu maç için top verisi yok; şutlar top takibiyle bulunur.</p></section>`;
-  const t0 = m.start_s || 0;
-  const shots = (m.shots || []).map((s, i) => ({...s, i, min: Math.max(0, Math.floor((s.t - t0) / 60)) + 1}));
-  if (!shots.length) return `<section class="panel"><h2>Şut haritası (deneysel)</h2><p class="note" style="margin-top:8px">Top takibi bu maçta kale ağzında biten bir top uçuşu bulamadı.</p></section>`;
-  const lit = s => shotSel != null ? s.i === shotSel : (shotPlayer ? s.who === shotPlayer : true);
-  const names = [...new Set(shots.map(s => s.who))].sort((x, y) => x.localeCompare(y, "tr"));
-  const list = t => { const mine = shots.filter(s => s.team === t.name).sort((x, y) => x.t - y.t);
-    return `<div><h3><span style="color:${colorOf(t.name)}">${esc(t.name)}</span><span class="note">${mine.length} şut</span></h3><ol class="shotlist">` + mine.map(s =>
-      `<li><button type="button" data-shot="${s.i}" aria-pressed="${shotSel === s.i}"${shotPlayer && s.who !== shotPlayer ? ' style="opacity:.45"' : ""}><span class="mn">${s.min}'</span><span>${esc(s.who)}</span><span class="mk${s.on_target ? " on" : ""}" style="color:${colorOf(t.name)}" title="${s.on_target ? "İsabetli" : "İsabetsiz"}"></span></button></li>`).join("") + `</ol></div>`; };
+  if (!m.has_ball && !(m.goals || []).some(g => g.from_xy)) return `<section class="panel"><h2>Şut haritası</h2><p class="note" style="margin-top:8px">Bu maç için top verisi yok. Gollerin yerini "Maç videosu" listesinden işaretlerseniz burada görünür.</p></section>`;
+  const {shots: all, unplaced} = allShots(m);
+  const shots = all.filter(s => shotFilter === "all" || (shotFilter === "on" ? s.on : s.goal));
+  const lit = s => shotSel != null ? s.key === shotSel : (shotPlayer ? s.who === shotPlayer : true);
+  const names = [...new Set(all.map(s => s.who).filter(Boolean))].sort((x, y) => x.localeCompare(y, "tr"));
+  const list = t => { const mine = shots.filter(s => s.team === t.name), every = all.filter(s => s.team === t.name);
+    return `<div><h3><span style="color:${colorOf(t.name)}">${esc(t.name)}</span><span class="note">${every.length} şut · xG ${f2(xgSum(every))} · ${every.filter(s => s.goal).length} gol</span></h3><ol class="shotlist">` + mine.map(s =>
+      `<li><button type="button" data-shot="${s.key}" aria-pressed="${shotSel === s.key}"${shotPlayer && s.who !== shotPlayer ? ' style="opacity:.45"' : ""}><span class="mn">${s.min}'</span><span>${esc(s.who || "?")}${s.goal ? " ⚽" : ""}</span><span class="xgv">${f2(s.xg)}</span></button></li>`).join("") + `</ol></div>`; };
   let marks = "";
-  for (const s of shots){ const c = colorOf(s.team), on = lit(s), big = shotSel === s.i;
-    marks += `<line x1="${s.from_xy[0]}" y1="${s.from_xy[1]}" x2="${s.to_xy[0]}" y2="${s.to_xy[1]}" stroke="${c}" stroke-width="${big ? 0.35 : 0.2}" opacity="${on ? (big ? 0.9 : 0.5) : 0.08}"${s.on_target ? "" : ' stroke-dasharray="0.6 0.4"'}/>
-      <circle data-shot="${s.i}" cx="${s.from_xy[0]}" cy="${s.from_xy[1]}" r="${big ? 1.1 : 0.7}" fill="${s.on_target ? c : "var(--surface)"}" stroke="${c}" stroke-width="0.3" opacity="${on ? 1 : 0.2}" style="cursor:pointer"><title>${s.min}' ${esc(s.who)} (${s.on_target ? "isabetli" : "isabetsiz"})</title></circle>`; }
-  const sel = shotSel != null ? shots.find(s => s.i === shotSel) : null;
-  const detail = sel ? `${sel.min}' · ${esc(sel.who)} · ${sel.on_target ? "isabetli" : "isabetsiz"} · kaleye yaklaşık ${Math.round(Math.hypot(sel.from_xy[0] - (sel.to_xy[0] < L / 2 ? 0 : L), sel.from_xy[1] - W / 2))} m`
-    : shotPlayer ? `${esc(shotPlayer)}: ${shots.filter(s => s.who === shotPlayer).length} şut, ${shots.filter(s => s.who === shotPlayer && s.on_target).length} isabetli` : "";
-  return `<section class="panel"><h2>Şut haritası (deneysel)</h2>
-    <p class="note" style="margin-top:6px">Şut: etiketli bir oyuncunun bıraktığı ve kale ağzında biten top uçuşu. Dolu daire isabetli, boş daire isabetsiz. Bir şuta ya da oyuncuya dokunun, sahada vurgulansın.</p>
+  for (const s of shots){ const c = colorOf(s.team), on = lit(s), big = shotSel === s.key, r = 0.55 + 1.6 * Math.sqrt(s.xg);
+    marks += `<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${c}" stroke-width="${big ? 0.35 : 0.2}" opacity="${on ? (big ? 0.9 : 0.5) : 0.08}"${s.on ? "" : ' stroke-dasharray="0.6 0.4"'}/>
+      <circle data-shot="${s.key}" cx="${s.from[0]}" cy="${s.from[1]}" r="${big ? r + 0.4 : r}" fill="${s.on ? c : "var(--surface)"}" stroke="${s.goal ? "var(--ink)" : c}" stroke-width="${s.goal ? 0.45 : 0.3}" opacity="${on ? 1 : 0.2}" style="cursor:pointer"><title>${s.min}' ${esc(s.who || "?")} · xG ${f2(s.xg)}${s.goal ? " · GOL" : s.on ? " · isabetli" : " · isabetsiz"}</title></circle>`; }
+  const sel = shotSel != null ? all.find(s => s.key === shotSel) : null;
+  const detail = sel ? `${sel.min}' · ${esc(sel.who || "?")} · ${sel.goal ? "gol" : sel.on ? "isabetli" : "isabetsiz"} · xG ${f2(sel.xg)} · kaleye ~${Math.round(Math.hypot(sel.from[0] - sel.goalX, sel.from[1] - W / 2))} m ${shotVideo(m, sel)}`
+    : shotPlayer ? (() => { const mine = all.filter(s => s.who === shotPlayer); return `${esc(shotPlayer)}: ${mine.length} şut, ${mine.filter(s => s.on).length} isabetli, ${mine.filter(s => s.goal).length} gol · xG ${f2(xgSum(mine))}`; })() : "";
+  const seg = [["all", "Tümü"], ["on", "İsabetli şutlar"], ["goal", "Goller"]].map(([k, l]) => `<button type="button" data-sf="${k}" aria-pressed="${shotFilter === k}">${l}</button>`).join("");
+  // xG against goals, per team and per player
+  const per = {};
+  for (const s of all){ if (!s.who) continue; const e = per[s.who] ||= {who: s.who, team: s.team, n: 0, on: 0, g: 0, xg: 0}; e.n++; e.on += s.on; e.g += s.goal; e.xg += s.xg; }
+  const rows = Object.values(per).sort((a, b) => b.xg - a.xg);
+  const teamLine = t => { const e = all.filter(s => s.team === t.name), xg = xgSum(e), g = e.filter(s => s.goal).length;
+    return `<b style="color:${colorOf(t.name)}">${esc(t.name)}</b>: ${e.length} şuttan xG ${f2(xg)}, ${g} gol${e.length ? (g > xg + 0.5 ? " — beklenenden fazla gol attı, bitiricilik iyi." : g < xg - 0.5 ? " — pozisyonlara göre az gol, fırsat kaçırdı." : " — gol sayısı pozisyonların kalitesiyle uyumlu.") : "."}`; };
+  return `<section class="panel"><h2>Şut haritası ve xG (deneysel)</h2>
+    <p class="note" style="margin-top:6px">Şutlar top takibinden (kale ağzında biten top uçuşları) ve onaylanan gollerden gelir. Daire büyüdükçe xG (gol beklentisi) yüksek; dolu daire isabetli, siyah kenarlı daire gol. Bir şuta dokunun: xG'si ve videosu görünsün.</p>
+    <div class="seg" style="margin-top:10px">${seg}</div>
     <div class="scorebox" style="margin-top:10px"><label for="shotP">Oyuncu</label><select id="shotP"><option value="">Tüm oyuncular</option>${names.map(n => `<option${n === shotPlayer ? " selected" : ""}>${esc(n)}</option>`).join("")}</select><span class="note" role="status">${detail}</span></div>
-    <div class="shotmap">${list(H)}<div class="pitch">${pitchSvg(L, W, marks)}</div>${A ? list(A) : "<div></div>"}</div></section>`;
+    <div class="shotmap">${list(H)}<div class="pitch">${pitchSvg(L, W, marks)}</div>${A ? list(A) : "<div></div>"}</div>
+    ${unplaced ? `<p class="note" style="margin-top:8px">${unplaced} golün şut yeri bilinmiyor; xG'ye katılmadı. Özet sekmesindeki "Maç videosu" listesinde golü izleyip sahada yerini işaretleyebilirsiniz.</p>` : ""}
+    </section>
+    <section class="panel"><h2>xG analizi</h2>
+    <ul class="plain" style="margin-top:8px"><li>${teamLine(H)}</li>${A ? `<li>${teamLine(A)}</li>` : ""}</ul>
+    ${rows.length ? `<div class="scroll"><table style="margin-top:10px"><thead><tr><th>Oyuncu</th><th>Şut</th><th>İsabetli</th><th>Gol</th><th>xG</th><th>Gol − xG</th></tr></thead><tbody>${rows.map(r => {
+      const p = m.players.find(q => q.name === r.who); return `<tr><td>${p ? pl(p) : esc(r.who)}</td><td>${r.n}</td><td>${r.on}</td><td>${r.g}</td><td>${f2(r.xg)}</td><td>${(r.g - r.xg >= 0 ? "+" : "−") + f2(Math.abs(r.g - r.xg))}</td></tr>`; }).join("")}</tbody></table></div>` : ""}
+    <p class="note" style="margin-top:8px">xG, şutun kaleye uzaklığı ve açısından hesaplanan basit bir modeldir (halı saha kalesi 5 m kabul edildi): kale önünde 3 m'den ~0,45, 6 m'den ~0,25, 15 m'den ~0,07. Gerçek maç verisiyle eğitilmedi; top takibi her şutu yakalayamadığı için toplamlar eksik olabilir.</p></section>`;
+}
+
+// ---- a few sentences about a player, from the numbers on their card
+function playerStory(m, p, F0, distP){
+  const S = [], mates = m.players.filter(q => q.team === p.team), all = m.players;
+  const r = effRating(m, p), rank = [...mates].sort((a, b) => effRating(m, b) - effRating(m, a)).indexOf(p) + 1;
+  const e = ev(m, p);
+  const pace = q => q.minutes > 0 ? q.distance_m / q.minutes : 0;
+  const paces = all.map(pace).sort((a, b) => b - a), pr = paces.indexOf(pace(p)) + 1;
+  S.push(rank === 1 ? `${p.team} takımının maçtaki en iyi oyuncusu (${r.toFixed(1)}).` : r >= 7 ? `İyi bir maç: puanı ${r.toFixed(1)}, takımında ${rank}. sırada.` : r < 6 ? `Zor bir maç: puanı ${r.toFixed(1)}, takımında ${rank}. sırada.` : `Ortalama bir maç: puanı ${r.toFixed(1)}, takımında ${rank}. sırada.`);
+  if (e.goals || e.assists) S.push(`${e.goals ? e.goals + " gol" : ""}${e.goals && e.assists ? " ve " : ""}${e.assists ? e.assists + " asist" : ""} ile skora doğrudan katkı verdi.`);
+  if (pr <= Math.max(2, Math.round(all.length * 0.2))) S.push(`Sahadaki en çok koşanlardan biri: dakika başına temposu maçta ${pr}. sırada.`);
+  else if (pr > all.length * 0.8) S.push(`Koşu temposu düşük kaldı (maçta ${pr}. sırada).`);
+  const R = m.report, th = p.thirds || [0, 0, 0];
+  if (R && R.attacks_right && p.team in R.attacks_right){
+    const att = R.attacks_right[p.team] ? th[2] : th[0], def = R.attacks_right[p.team] ? th[0] : th[2];
+    S.push(att >= 0.45 ? `Zamanının %${Math.round(att * 100)}'ini hücum bölgesinde geçirdi; ileri uçta oynadı.` : def >= 0.45 ? `Zamanının %${Math.round(def * 100)}'ini kendi kalesine yakın geçirdi; savunmada kaldı.` : `Sahanın her bölgesinde göründü; orta sahada denge kurdu.`);
+  }
+  if (m.has_ball){
+    const tm = k => Math.max(...mates.map(q => q[k] || 0));
+    if (p.interceptions && p.interceptions === tm("interceptions")) S.push(`Takımında en çok top kapan oyuncu (${p.interceptions}).`);
+    if (p.losses >= 5 && p.losses >= p.interceptions + 2) S.push(`${p.losses} top kaybı puanını aşağı çekti.`);
+    if (p.passes >= 5) S.push(p.pass_accuracy >= 0.6 ? `Paslarda isabetli: %${Math.round(p.pass_accuracy * 100)}.` : p.pass_accuracy != null && p.pass_accuracy < 0.3 ? `Pas isabeti düşük kaldı (%${Math.round(p.pass_accuracy * 100)}).` : "");
+    const mine = allShots(m).shots.filter(s => s.who === p.name);
+    if (mine.length){ const xg = xgSum(mine), g = mine.filter(s => s.goal).length;
+      S.push(`Şut haritasında ${mine.length} şutu var: toplam xG ${f2(xg)}${g ? `, ${g}'i gol` : ""}${g > xg + 0.4 ? "; beklentinin üstünde bitirdi" : g < xg - 0.4 ? "; pozisyonlarına göre az gol çıkardı" : ""}.`); }
+  }
+  if ((m.low_confidence || []).includes(p.team)) S.push("Not: bu takımda forma renkleri aynı olduğu için oyuncu bazında koşu verisi yaklaşık.");
+  return S.filter(Boolean).join(" ");
 }
 
 // ---- before the game: times, teams and players, saved in the page database (setup/<date>)
@@ -480,10 +750,11 @@ function render(){
   sel.hidden = matches.length < 1;
   const view = $("view");
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
-  if (tab === "hazirlik"){ $("score").hidden = true; $("tabs").hidden = false; renderSetup(view); return; }
-  if (!current){ $("score").hidden = true; $("tabs").hidden = !db;
+  if (tab === "hazirlik"){ $("score").hidden = true; $("tabs").hidden = false; $("winbar").hidden = true; renderSetup(view); return; }
+  if (!current){ $("score").hidden = true; $("tabs").hidden = !db; $("winbar").hidden = true;
     view.innerHTML = `<div class="empty" id="empty">${esc(emptyMsg)}</div>`; return; }
-  const m = current, [H, A] = m.teams, L = m.pitch[0], W = m.pitch[1];
+  renderWinbar();
+  const m = windowed(current), [H, A] = m.teams, L = m.pitch[0], W = m.pitch[1];
   const colorOf = t => t === H.name ? "var(--home)" : "var(--away)";
   const F0 = gpsFactor(m);
   const distP = p => F0 ? Math.round(p.distance_m / Math.max(p.minutes, 1) * F0) : p.distance_m;
@@ -499,7 +770,7 @@ function render(){
   const g = $("goals");
   if (sc && sc[0] != null && sc[1] != null){ g.className = "goals"; g.textContent = `${sc[0]} - ${sc[1]}`; }
   else { g.className = "goals none"; g.textContent = "Skor girilmedi"; }
-  $("meta").textContent = [m.date, m.venue, `${num(m.minutes)} dk analiz`, `kamera ${m.cameras.join(" + ")}`].filter(Boolean).join(" · ");
+  $("meta").textContent = [m.date, m.venue, m._win ? `${m._win.a}'–${m._win.b}' arası gösteriliyor` : `${num(m.minutes)} dk analiz`, `kamera ${m.cameras.join(" + ")}`].filter(Boolean).join(" · ");
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
 
   let html = "";
@@ -516,8 +787,11 @@ function render(){
       ["Koşu mesafesi (km)", distT(H) / 1000, A && distT(A) / 1000, "km"], ["Sprint", H.sprints, A && A.sprints],
       ["Ortalama puan", H.rating, A && A.rating, "r"],
     ].filter(r => m.has_ball || /Koşu|Sprint|puan/.test(r[0]));
+    const SH = allShots(m).shots;
+    if (SH.length && A){ const of = t => SH.filter(s => s.team === t.name);
+      rows.unshift(["Gol beklentisi (xG)", xgSum(of(H)), xgSum(of(A)), "x"], ["Şut", of(H).length, of(A).length], ["İsabetli şut", of(H).filter(s => s.on).length, of(A).filter(s => s.on).length]); }
     html += `<section class="panel"><h2>Takım istatistikleri</h2><div class="stats">` + rows.map(([label, a, b, kind]) => {
-      const f = v => v == null ? "–" : kind === "pct" ? pct(v) : kind === "km" ? v.toFixed(1) : kind === "r" ? v.toFixed(2) : num(v);
+      const f = v => v == null ? "–" : kind === "pct" ? pct(v) : kind === "km" ? v.toFixed(1) : kind === "r" ? v.toFixed(2) : kind === "x" ? f2(v) : num(v);
       return statRow(label, "", a, b, f(a), f(b), label === "Top kaybı");
     }).join("") + `</div></section>`;
     html += reportHtml(m, H, A);
@@ -561,20 +835,49 @@ function render(){
       <div style="display:flex;flex-wrap:wrap;gap:16px 40px;margin-top:12px">${lists}</div></section>`;
   }
   if (tab === "oyuncular"){
-    const cols = m.has_ball
-      ? ["Oyuncu","Puan","Gol","Asist","Dk","Mesafe (m)","Pas","İsabetli","Pas %","Dokunuş","Topla süre (sn)","Top kapma","Top kaybı","Sprint"]
-      : ["Oyuncu","Puan","Gol","Asist","Dk","Mesafe (m)","Ort. hız (km/sa)","Sprint"];
-    html += `<section class="panel"><h2>Oyuncu istatistikleri</h2><div class="scroll"><table style="margin-top:8px"><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+    // every column sorts within each team; the first tap puts the best first (for "Top kaybı" the fewest)
+    const kmh = p => F0 ? distP(p) / 1000 / ((m.minutes || 60) / 60) : p.avg_kmh;
+    const SHx = allShots(m).shots;
+    const C = [
+      {h: "Oyuncu", v: p => p.name, txt: true, c: p => pl(p)},
+      {h: "Puan", v: p => effRating(m, p), c: p => `<span class="chip" style="background:${ratingColor(effRating(m, p))}">${effRating(m, p).toFixed(1)}</span>`},
+      {h: "Gol", v: p => ev(m, p).goals || 0, c: p => ev(m, p).goals || 0},
+      {h: "Asist", v: p => ev(m, p).assists || 0, c: p => ev(m, p).assists || 0},
+      {h: "Dk", v: p => p.minutes, c: p => p.minutes.toFixed(0)},
+      {h: "Mesafe (m)", v: p => distP(p), c: p => lc(p) + num(distP(p))},
+      {h: "Ort. hız (km/sa)", v: kmh, c: p => lc(p) + kmh(p).toFixed(1)},
+      {h: "Sprint", v: p => p.sprints, c: p => p.sprints},
+      ...(vestEst(m, m.players[0]) ? [
+        {h: "HID (m)", v: p => (vestEst(m, p) || {}).hid_m ?? -1, c: p => { const e = vestEst(m, p); return e && e.hid_m != null ? lc(p) + num(Math.round(e.hid_m)) : "–"; }},
+        {h: "HSR (m)", v: p => (vestEst(m, p) || {}).hsr_m ?? -1, c: p => { const e = vestEst(m, p); return e && e.hsr_m != null ? lc(p) + num(Math.round(e.hsr_m)) : "–"; }},
+        {h: "Sprint mes. (m)", v: p => (vestEst(m, p) || {}).sprint_m ?? -1, c: p => { const e = vestEst(m, p); return e && e.sprint_m != null ? lc(p) + num(Math.round(e.sprint_m)) : "–"; }},
+        {h: "İvmelenme", v: p => (vestEst(m, p) || {}).accelerations ?? -1, c: p => { const e = vestEst(m, p); return e && e.accelerations != null ? lc(p) + Math.round(e.accelerations) : "–"; }},
+      ] : []),
+      ...(m.has_ball ? [
+        {h: "Pas", v: p => p.passes, c: p => p.passes},
+        {h: "İsabetli", v: p => p.passes_ok, c: p => p.passes_ok},
+        {h: "Pas %", v: p => p.pass_accuracy ?? -1, c: p => pct(p.pass_accuracy)},
+        {h: "Dokunuş", v: p => p.touches, c: p => p.touches},
+        {h: "Topla süre (sn)", v: p => p.ball_seconds, c: p => p.ball_seconds},
+        {h: "Top kapma", v: p => p.interceptions, c: p => p.interceptions},
+        {h: "Top kaybı", v: p => p.losses, low: true, c: p => p.losses},
+        {h: "xG", v: p => xgSum(SHx.filter(s => s.who === p.name)), c: p => f2(xgSum(SHx.filter(s => s.who === p.name)))},
+      ] : []),
+    ];
+    const sc = C[plSort.col];
+    const order = list => !sc ? list : [...list].sort((a, b) => {
+      const x = sc.v(a), y = sc.v(b);
+      const d = sc.txt ? String(x).localeCompare(String(y), "tr") : (x - y);
+      return plSort.dir * d;
+    });
+    const arrow = i => plSort.col === i ? (plSort.dir > 0 ? " ▲" : " ▼") : "";
+    html += `<section class="panel"><h2>Oyuncu istatistikleri</h2><p class="note" style="margin-top:6px">Sıralamak için bir başlığa dokunun: önce en iyiden en kötüye, tekrar dokununca tersine. Her takım kendi içinde sıralanır.</p><div class="scroll"><table style="margin-top:8px"><thead><tr>${C.map((c, i) =>
+      `<th aria-sort="${plSort.col === i ? (plSort.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="thbtn" data-sort="${i}">${c.h}${arrow(i)}</button></th>`).join("")}</tr></thead><tbody>`;
     for (const t of m.teams){
-      html += `<tr class="team"><td colspan="${cols.length}"><span class="dot" style="background:${colorOf(t.name)}"></span>${esc(t.name)}</td></tr>`;
-      for (const p of m.players.filter(p => p.team === t.name)){
-        const chip = `<span class="chip" style="background:${ratingColor(effRating(m, p))}">${effRating(m, p).toFixed(1)}</span>`;
-        html += m.has_ball
-          ? `<tr><td>${pl(p)}</td><td>${chip}</td><td>${ev(m, p).goals || 0}</td><td>${ev(m, p).assists || 0}</td><td>${p.minutes.toFixed(0)}</td><td>${lc(p)}${num(distP(p))}</td><td>${p.passes}</td><td>${p.passes_ok}</td><td>${pct(p.pass_accuracy)}</td><td>${p.touches}</td><td>${p.ball_seconds}</td><td>${p.interceptions}</td><td>${p.losses}</td><td>${p.sprints}</td></tr>`
-          : `<tr><td>${pl(p)}</td><td>${chip}</td><td>${ev(m, p).goals || 0}</td><td>${ev(m, p).assists || 0}</td><td>${p.minutes.toFixed(0)}</td><td>${lc(p)}${num(distP(p))}</td><td>${lc(p)}${(F0 ? distP(p) / 1000 / ((m.minutes || 60) / 60) : p.avg_kmh).toFixed(1)}</td><td>${p.sprints}</td></tr>`;
-      }
+      html += `<tr class="team"><td colspan="${C.length}"><span class="dot" style="background:${colorOf(t.name)}"></span>${esc(t.name)}</td></tr>`;
+      for (const p of order(m.players.filter(p => p.team === t.name))) html += `<tr>${C.map(c => `<td>${c.c(p)}</td>`).join("")}</tr>`;
     }
-    html += `</tbody></table></div>${(m.low_confidence || []).length ? `<p class="note" style="margin-top:10px">~ Düşük güven: ${m.low_confidence.map(esc).join(", ")} oyuncularının formaları aynı renkte olduğu için kamera kimin kim olduğunu ayırt etmekte zorlandı; oyuncu bazında mesafe ve hız yaklaşık.${m.blend_note ? " " + esc(m.blend_note) + "." : ""} Takım toplamları etkilenmez.</p>` : ""}<p class="note" style="margin-top:10px">Dk: oyuncunun kamerada takip edilebildiği süre; sahada kaldığı süreden kısadır. Gol +1,0 ve asist +0,5 puan ekler.${F0 ? ` Mesafeler ${esc(m.gps.player)}'in STATSports ölçümüne göre ayarlandı: her oyuncunun kamerada ölçülen dakikalık temposu tüm maça yayıldı.` : ""}</p></section>`;
+    html += `</tbody></table></div>${(m.low_confidence || []).length ? `<p class="note" style="margin-top:10px">~ Düşük güven: ${m.low_confidence.map(esc).join(", ")} oyuncularının formaları aynı renkte olduğu için kamera kimin kim olduğunu ayırt etmekte zorlandı; oyuncu bazında mesafe ve hız yaklaşık.${m.blend_note ? " " + esc(m.blend_note) + "." : ""} Takım toplamları etkilenmez.</p>` : ""}<p class="note" style="margin-top:10px">Dk: oyuncunun kamerada takip edilebildiği süre; sahada kaldığı süreden kısadır. Gol +1,0, asist +0,5, her top kapma +0,15 puan ekler; her top kaybı 0,15 düşürür (ikisi de en fazla 1,0).${F0 ? ` Mesafeler ${esc((m._full || m).gps.player)}'in STATSports ölçümüne göre ayarlandı: her oyuncunun kamerada ölçülen dakikalık temposu ${m._win ? "seçilen dakikalara" : "tüm maça"} yayıldı.` : ""}${vestEst(m, m.players[0]) ? ` HID, HSR, sprint mesafesi ve ivmelenme yelekten tahmin: ${esc((m._full || m).gps.player)}'in yelek değeri × oyuncunun kamerada aynı hız bandındaki dakikalık koşusu / ${esc((m._full || m).gps.player)}'inki. Kaba tahmindir.` : ""}</p></section>`;
   }
   if (tab === "isi"){
     html += `<section class="panel"><h2>Isı haritaları</h2><div class="legend" style="margin:8px 0 12px">az<span class="ramp">${HEAT.slice(1).map(c => `<i style="background:${c}"></i>`).join("")}</span>çok
@@ -590,7 +893,7 @@ function render(){
     else {
       const list = m.passes.filter(p => passTeam === "all" || m.players.find(q => q.name === p.from)?.team === passTeam);
       const lines = list.map(p => { const team = m.players.find(q => q.name === p.from)?.team;
-        return `<line x1="${p.from_xy[0]}" y1="${p.from_xy[1]}" x2="${p.to_xy[0]}" y2="${p.to_xy[1]}" stroke="${p.ok ? colorOf(team) : "var(--mute)"}" stroke-width="${p.ok ? 0.3 : 0.22}" ${p.ok ? "" : 'stroke-dasharray="0.8 0.6"'} stroke-linecap="round" opacity="0.8"><title>${esc(p.from)} → ${esc(p.to)}${p.ok ? "" : " (rakibe)"} · ${Math.floor(p.t/60)}. dk</title></line><circle cx="${p.to_xy[0]}" cy="${p.to_xy[1]}" r="0.45" fill="${p.ok ? colorOf(team) : "var(--mute)"}"/>`; }).join("");
+        return `<line x1="${p.from_xy[0]}" y1="${p.from_xy[1]}" x2="${p.to_xy[0]}" y2="${p.to_xy[1]}" stroke="${p.ok ? colorOf(team) : "var(--mute)"}" stroke-width="${p.ok ? 0.3 : 0.22}" ${p.ok ? "" : 'stroke-dasharray="0.8 0.6"'} stroke-linecap="round" opacity="0.8"><title>${esc(p.from)} → ${esc(p.to)}${p.ok ? "" : " (rakibe)"} · ${Math.floor((p.t - (m.start_s || 0)) / 60) + 1}. dk</title></line><circle cx="${p.to_xy[0]}" cy="${p.to_xy[1]}" r="0.45" fill="${p.ok ? colorOf(team) : "var(--mute)"}"/>`; }).join("");
       html += `<section class="panel"><h2>Pas haritası (deneysel)</h2><div class="seg" style="margin:8px 0 12px">
         <button type="button" data-pt="all" aria-pressed="${passTeam === "all"}">Tümü</button>${m.teams.map(t => `<button type="button" data-pt="${esc(t.name)}" aria-pressed="${passTeam === t.name}">${esc(t.name)}</button>`).join("")}</div>
         ${pitchSvg(L, W, lines)}
@@ -599,15 +902,24 @@ function render(){
   }
   ctx = {m, distP, colorOf, L, W, F0};
   view.innerHTML = html;
-  for (const b of view.querySelectorAll("[data-gsave]")) b.onclick = () => saveGoal(m, b.closest(".gedit"));
+  for (const b of view.querySelectorAll("[data-gsave]")) b.onclick = () => saveGoal(m._full || m, b.closest(".gedit"));
   for (const b of view.querySelectorAll("[data-pt]")) b.onclick = () => { passTeam = b.dataset.pt; render(); };
-  for (const b of view.querySelectorAll("[data-shot]")) b.addEventListener("click", () => { const i = +b.dataset.shot; shotSel = shotSel === i ? null : i; render(); });
+  for (const b of view.querySelectorAll("[data-sort]")) b.onclick = () => { const i = +b.dataset.sort, txt = i === 0, low = b.textContent.startsWith("Top kaybı");
+    plSort = plSort.col === i ? {col: i, dir: -plSort.dir} : {col: i, dir: (txt || low) ? 1 : -1}; render(); };
+  for (const b of view.querySelectorAll("[data-shot]")) b.addEventListener("click", () => { const k = b.dataset.shot; shotSel = shotSel === k ? null : k; render(); });
+  for (const b of view.querySelectorAll("[data-sf]")) b.onclick = () => { shotFilter = b.dataset.sf; shotSel = null; render(); };
+  for (const svg of view.querySelectorAll("svg[data-gpick]")) svg.addEventListener("click", ev2 => {
+    const pt = svg.createSVGPoint(); pt.x = ev2.clientX; pt.y = ev2.clientY; const q = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const L = m.pitch[0], W = m.pitch[1], x = Math.round(Math.min(L, Math.max(0, q.x)) * 10) / 10, y = Math.round(Math.min(W, Math.max(0, q.y)) * 10) / 10;
+    const box = svg.closest(".gedit"); box.dataset.xy = JSON.stringify([x, y]);
+    const mk = svg.querySelector("[data-gmark]"); mk.setAttribute("cx", x); mk.setAttribute("cy", y); mk.setAttribute("opacity", 1);
+    const lab = box.querySelector("[data-gxy]"); if (lab) lab.textContent = `xG ${f2(xgOf(x, y, L, W, x < L / 2 ? 0 : L))}`; });
   if ($("shotP")) $("shotP").onchange = e => { shotPlayer = e.target.value; shotSel = null; render(); };
   const area = $("scoreArea");
   if (area){
     const scorers = m.players.filter(p => ev(m, p).goals || ev(m, p).assists)
       .map(p => `${esc(p.name)}: ${ev(m, p).goals || 0} gol, ${ev(m, p).assists || 0} asist`).join(" · ");
-    if (canWrite && A){
+    if (canWrite && A && !m._win){
       area.innerHTML = `<form id="scoreForm"><div class="scorebox"><label for="sH">${esc(H.name)}</label><input id="sH" type="number" min="0" max="99" inputmode="numeric" value="${sc && sc[0] != null ? sc[0] : ""}">
         <label for="sA">${esc(A.name)}</label><input id="sA" type="number" min="0" max="99" inputmode="numeric" value="${sc && sc[1] != null ? sc[1] : ""}"></div>
         <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Oyuncu</th><th>Gol</th><th>Asist</th></tr></thead><tbody>${m.players.map((p, i) =>
@@ -623,17 +935,32 @@ function render(){
   }
   const ga = $("gpsArea");
   if (ga){
-    const g = m.gps || {};
-    const ref = F0 ? m.players.find(q => q.name === g.player) : null;
-    const vest = [["Toplam mesafe", g.distance_m, " m"], ["Dakika başına", g.m_per_min, " m"], ["Maks. hız", g.max_speed_kmh, " km/sa"], ["Sprint", g.sprints, ""],
-      ["Yüksek yoğunluk (HID)", g.hid_m, " m"], ["Yüksek hız (HSR)", g.hsr_m, " m"], ["Sprint mesafesi", g.sprint_m, " m"], ["İvmelenme", g.accelerations, ""],
-      ["Yavaşlama", g.decelerations, ""], ["Ort. nabız", g.avg_hr, " bpm"], ["Maks. nabız", g.max_hr, " bpm"]].filter(r => r[1] != null);
-    const info = F0 ? `<div class="scorebox" style="margin-bottom:8px">${ava(ref, "lg")}<b>${esc(g.player)}</b><span class="note">STATSports yeleği</span></div>
-      <div class="scroll"><table><tbody>${vest.map(([k, v, u]) => `<tr><td>${k}</td><td>${typeof v === "number" ? num(v) : esc(v)}${u}</td></tr>`).join("")}</tbody></table></div>
-      <p class="note" style="margin-top:8px">Kamera ${esc(g.player)}'i ${ref.minutes.toFixed(0)} dk takip etti ve dakikada ${Math.round(ref.distance_m / ref.minutes)} m ölçtü; yelek maç boyu ${num(g.distance_m)} m ölçtü. Herkesin mesafesi bu oranla hesaplanıyor: dakikalık kamera temposu × ${num(Math.round(F0))}.</p>`
-      : `<p class="note">Yeleği giyen oyuncunun STATSports toplam mesafesi girilirse, kameranın ölçtüğü mesafeler ona göre düzeltilir.</p>`;
-    if (canWrite){
-      ga.innerHTML = info + `<form class="scorebox" id="gpsForm" style="margin-top:8px"><label for="gpsP">Yeleği giyen</label><select id="gpsP"><option value="">Seçin</option>${m.players.map(p => `<option${g.player === p.name ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
+    const fm = m._full || m, g = fm.gps || {};
+    const ref = F0 ? fm.players.find(q => q.name === g.player) : null, pv = g.previous_session || {};
+    const vest = [["Toplam mesafe", g.distance_m, " m", "distance_m"], ["Maçtaki mesafe (tahmini)", g.game_distance_m, " m"], ["Seans süresi", g.session, ""],
+      ["Dakika başına", g.m_per_min, " m", "m_per_min"], ["Maks. hız", g.max_speed_kmh, " km/sa", "max_speed_kmh"], ["Sprint", g.sprints, "", "sprints"],
+      ["Yüksek yoğunluk (HID)", g.hid_m, " m", "hid_m"], ["Yüksek hız (HSR)", g.hsr_m, " m", "hsr_m"], ["Sprint mesafesi", g.sprint_m, " m", "sprint_m"],
+      ["HID / dk", g.hid_m_per_min, " m"], ["HSR / dk", g.hsr_m_per_min, " m"], ["Sprint / dk", g.sprint_m_per_min, " m"],
+      ["İvmelenme", g.accelerations, "", "accelerations"], ["Yavaşlama", g.decelerations, "", "decelerations"], ["Ort. nabız", g.avg_hr, " bpm"], ["Maks. nabız", g.max_hr, " bpm"]].filter(r => r[1] != null);
+    const fmtv = v => typeof v === "number" ? num(v) : esc(v);
+    let info = "";
+    if (F0){
+      info = `<div class="scorebox" style="margin-bottom:8px">${ava(ref, "lg")}<b>${esc(g.player)}</b><span class="note">STATSports yeleği${g.session ? " · " + esc(g.session) : ""}</span></div>
+      <div class="scroll"><table class="kv"><tbody>${vest.map(([k, v, u, pk]) => `<tr><td>${k}</td><td>${fmtv(v)}${u}</td><td class="prev">${pk && pv[pk] != null ? "önceki: " + fmtv(pv[pk]) + u : ""}</td></tr>`).join("")}</tbody></table></div>`;
+      const hv = g.halves;
+      if (hv) info += `<h3 class="sub">Devreler</h3><div class="stats">` + [["Mesafe", "distance_m"], ["HID", "hid_m"], ["HSR", "hsr_m"], ["Sprint mesafesi", "sprint_m"]]
+        .filter(([, k]) => hv[k]).map(([l, k]) => statRow(l, "1. devre · 2. devre", hv[k][0], hv[k][1], num(hv[k][0]) + " m", num(hv[k][1]) + " m")).join("")
+        + (g.sprints_by_half ? statRow("Sprint", "", g.sprints_by_half[0], g.sprints_by_half[1], g.sprints_by_half[0], g.sprints_by_half[1]) : "") + `</div>`;
+      const ten = g.per_10min;
+      if (ten && ten.distance_m){ const mx = Math.max(...ten.distance_m);
+        info += `<h3 class="sub">10 dakikalık bölümler (yelek seansı)</h3><div class="tenbars">${ten.distance_m.map((v, i) => `<div><b>${num(v)}</b><i style="height:${(70 * v / mx).toFixed(0)}%"></i><span>${i * 10}–${i * 10 + 10}</span>${ten.max_kmh ? `<span>${String(ten.max_kmh[i]).replace(".", ",")} km/sa</span>` : ""}</div>`).join("")}</div>
+          <p class="note" style="margin-top:6px">Metre (üstte) ve o bölümdeki en yüksek hız (altta). Seans maçtan biraz önce başladı.</p>`; }
+      if (g.top_sprints) info += `<h3 class="sub">En iyi sprintler</h3><div class="scroll"><table class="kv"><tbody>${g.top_sprints.map(t => `<tr><td>${t.half}. devre · ${esc(t.at)}</td><td>${String(t.max_kmh).replace(".", ",")} km/sa</td><td>${t.distance_m} m · ${t.secs} sn</td></tr>`).join("")}</tbody></table></div>`;
+      if (g.thirds_pct) info += `<h3 class="sub">Saha bölgeleri (yelek)</h3><div class="stats">${["attacking", "middle", "defensive"].map((k, i) => statRow(["Hücum üçte biri", "Orta saha", "Savunma üçte biri"][i], "1. devre · 2. devre", g.thirds_pct.half1[k], g.thirds_pct.half2[k], g.thirds_pct.half1[k] + "%", g.thirds_pct.half2[k] + "%")).join("")}</div>`;
+      info += `<p class="note" style="margin-top:8px">Kamera ${esc(g.player)}'i ${ref.minutes.toFixed(0)} dk takip etti ve dakikada ${Math.round(ref.distance_m / ref.minutes)} m ölçtü; yelek maç boyunca ${num(g.game_distance_m || g.distance_m)} m ölçtü. Herkesin mesafesi bu oranla hesaplanıyor; HID, HSR, sprint mesafesi ve ivmelenme de her oyuncunun kamerada aynı hız bandındaki koşusuna göre ${esc(g.player)}'in yelek değerlerinden ölçeklenir (Oyuncular sekmesi).</p>`;
+    } else info = `<p class="note">Yeleği giyen oyuncunun STATSports toplam mesafesi girilirse, kameranın ölçtüğü mesafeler ona göre düzeltilir.</p>`;
+    if (canWrite && !m._win){
+      ga.innerHTML = info + `<form class="scorebox" id="gpsForm" style="margin-top:8px"><label for="gpsP">Yeleği giyen</label><select id="gpsP"><option value="">Seçin</option>${fm.players.map(p => `<option${g.player === p.name ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
         <label for="gpsD">Toplam mesafe (m)</label><input id="gpsD" type="number" min="0" max="20000" inputmode="numeric" style="width:90px" value="${g.distance_m || ""}">
         <label for="gpsV">Maks. hız (km/sa)</label><input id="gpsV" type="number" min="0" max="45" step="0.1" inputmode="decimal" style="width:80px" value="${g.max_speed_kmh || ""}">
         <label for="gpsS">Sprint</label><input id="gpsS" type="number" min="0" max="200" inputmode="numeric" style="width:70px" value="${g.sprints || ""}">
@@ -641,8 +968,9 @@ function render(){
         <button type="submit">STATSports verisini kaydet</button><span class="note" id="gpsMsg" role="status"></span></form>`;
       $("gpsForm").onsubmit = async e2 => { e2.preventDefault();
         if (!$("gpsP").value || !$("gpsD").value){ $("gpsMsg").textContent = "Oyuncuyu ve toplam mesafeyi girin."; return; }
-        const gps = {...(m.gps || {}), player: $("gpsP").value, distance_m: +$("gpsD").value, max_speed_kmh: +$("gpsV").value || null, sprints: +$("gpsS").value || null, hsr_m: +$("gpsH").value || null};
-        try { await db.doc("matches/" + m.id).update({gps}); $("gpsMsg").textContent = "Kaydedildi."; }
+        const gps = {...(fm.gps || {}), player: $("gpsP").value, distance_m: +$("gpsD").value, max_speed_kmh: +$("gpsV").value || null, sprints: +$("gpsS").value || null, hsr_m: +$("gpsH").value || null};
+        if ($("gpsP").value !== (fm.gps || {}).player || +$("gpsD").value !== (fm.gps || {}).distance_m) delete gps.game_distance_m;
+        try { await db.doc("matches/" + fm.id).update({gps}); $("gpsMsg").textContent = "Kaydedildi."; }
         catch (e) { $("gpsMsg").textContent = "Kaydedilemedi: bu sayfada yazma izniniz yok."; } };
     } else ga.innerHTML = info;
   }
@@ -655,6 +983,9 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") closePlayer(); });
 document.querySelector("nav.tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (b) { try { location.hash = b.dataset.tab; } catch (_) {} setTab(b.dataset.tab); } });
 $("matchSel").addEventListener("change", e => pickMatch(e.target.value));
+$("wa").addEventListener("input", e => { const a = +e.target.value; setWin(Math.min(a, win.b - 1), win.b); });
+$("wb").addEventListener("input", e => { const b = +e.target.value; setWin(win.a, Math.max(b, win.a + 1)); });
+$("wquick").addEventListener("click", e => { const b = e.target.closest("[data-w]"); if (b){ const [x, y] = b.dataset.w.split(",").map(Number); setWin(x, y); } });
 window.addEventListener("hashchange", () => setTab(location.hash.slice(1)));
 if (TABS.includes(location.hash.slice(1))) tab = location.hash.slice(1);
 
