@@ -201,6 +201,7 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .heat b{font:700 14px var(--body)}
 .chips span{border-style:solid;background:var(--soft)}
 .ava{border-width:2px}
+.warnnote{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:#fff4e5;color:#8a4b00}
 .score .mid{max-width:min(240px,46vw)} .score .side{min-width:72px}
 .ava{max-width:none;flex:none;aspect-ratio:1}
 .plink{white-space:nowrap}
@@ -675,6 +676,7 @@ function shotsHtml(m, H, A, L, W, colorOf){
   const teamLine = t => { const e = all.filter(s => s.team === t.name), xg = xgSum(e), g = e.filter(s => s.goal).length;
     return `<b style="color:${colorOf(t.name)}">${esc(t.name)}</b>: ${e.length} şuttan xG ${f2(xg)}, ${g} gol${e.length ? (g > xg + 0.5 ? " — beklenenden fazla gol attı, bitiricilik iyi." : g < xg - 0.5 ? " — pozisyonlara göre az gol, fırsat kaçırdı." : " — gol sayısı pozisyonların kalitesiyle uyumlu.") : "."}`; };
   return `<section class="panel"><h2>Şut haritası ve xG (deneysel)</h2>
+    ${(m._full || m).shots_warning ? `<p class="note warnnote">⚠ ${esc((m._full || m).shots_warning)}</p>` : ""}
     <p class="note" style="margin-top:6px">Şutlar top takibinden (kale ağzında biten top uçuşları) ve onaylanan gollerden gelir. Daire büyüdükçe xG (gol beklentisi) yüksek; dolu daire isabetli, siyah kenarlı daire gol. Bir şuta dokunun: xG'si ve videosu görünsün.</p>
     <div class="seg" style="margin-top:10px">${seg}</div>
     <div class="scorebox" style="margin-top:10px"><label for="shotP">Oyuncu</label><select id="shotP"><option value="">Tüm oyuncular</option>${names.map(n => `<option${n === shotPlayer ? " selected" : ""}>${esc(n)}</option>`).join("")}</select><span class="note" role="status">${detail}</span></div>
@@ -806,7 +808,7 @@ function render(){
     const SH = allShots(m).shots;
     if (SH.length && A){ const of = t => SH.filter(s => s.team === t.name);
       rows.unshift(["Gol beklentisi (xG)", xgSum(of(H)), xgSum(of(A)), "x"], ["Şut", of(H).length, of(A).length], ["İsabetli şut", of(H).filter(s => s.on).length, of(A).filter(s => s.on).length]); }
-    html += `<section class="panel"><h2>Takım istatistikleri</h2><div class="stats">` + rows.map(([label, a, b, kind]) => {
+    html += `<section class="panel"><h2>Takım istatistikleri</h2>${(m._full || m).shots_warning ? `<p class="note warnnote">⚠ ${esc((m._full || m).shots_warning)}</p>` : ""}<div class="stats">` + rows.map(([label, a, b, kind]) => {
       const f = v => v == null ? "–" : kind === "pct" ? pct(v) : kind === "km" ? v.toFixed(1) : kind === "r" ? v.toFixed(2) : kind === "x" ? f2(v) : num(v);
       return statRow(label, "", a, b, f(a), f(b), label === "Top kaybı");
     }).join("") + `</div></section>`;
