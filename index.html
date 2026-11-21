@@ -204,6 +204,14 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .warnnote{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:#fff4e5;color:#8a4b00}
 .role{display:inline-block;min-width:22px;padding:2px 6px;border-radius:6px;background:var(--soft);font:700 12px var(--body);text-align:center}
 .disclaimer{margin:10px 0 0;padding:8px 12px;border-radius:10px;background:var(--surface);color:var(--mute);font:500 12.5px/1.4 var(--body);box-shadow:0 1px 3px rgba(34,34,38,.08)}
+.pkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-top:10px}
+.pk{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:var(--soft);font-size:13px;cursor:pointer}
+.pk input{margin:0}
+.kteams{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.kt h3{font:700 14px var(--body);margin:0 0 6px;display:flex;justify-content:space-between;gap:6px}
+.kt ul{list-style:none;margin:0;padding:0}
+.kt li{display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--line);font-size:14px}
+.kt li .note{margin-left:auto}
 .score .mid{max-width:min(240px,46vw)} .score .side{min-width:72px}
 .ava{max-width:none;flex:none;aspect-ratio:1}
 .plink{white-space:nowrap}
@@ -266,6 +274,7 @@ table.kv td.prev{color:var(--mute);font-size:12px}
   <button role="tab" data-tab="paslar" id="tab-paslar">Paslar</button>
   <button role="tab" data-tab="sutlar" id="tab-sutlar">Şutlar</button>
   <button role="tab" data-tab="sezon" id="tab-sezon">Sezon</button>
+  <button role="tab" data-tab="kadro" id="tab-kadro">Kadro kur</button>
   <button role="tab" data-tab="hazirlik" id="tab-hazirlik">Maç öncesi</button>
 </div></nav>
 <div id="winbar" class="gut" hidden><div class="in">
@@ -283,7 +292,8 @@ table.kv td.prev{color:var(--mute);font-size:12px}
 
 <script>
 const HEAT = ["#fff3b0","#ffe58a","#fed566","#fec24c","#fdaa3c","#fd9133","#fc7430","#f6552b","#d91f20","#a50424"];
-const TABS = ["ozet","dizilis","oyuncular","isi","paslar","sutlar","sezon","hazirlik"];
+const TABS = ["ozet","dizilis","oyuncular","isi","paslar","sutlar","sezon","kadro","hazirlik"];
+let season = null;   // ChatGPT export: older matches, analyst ratings, chemistry, squad rules
 let matches = [], current = null, tab = "ozet", passTeam = "all", db = null, canWrite = false;
 let plSort = {col: null, dir: -1};
 let shotSel = null, shotPlayer = "", setupDate = null, emptyMsg = "Maç verileri yükleniyor…";
@@ -478,52 +488,166 @@ function openPlayer(name){
   el.querySelector(".pclose").focus();
 }
 function closePlayer(){ const el = document.getElementById("pmodal"); if (!el || el.hidden) return; el.hidden = true; el.innerHTML = ""; document.body.style.overflow = ""; }
-// Season table: every stored match, each one rated as a whole match with the position-based rating.
+// Season table. Two sources, merged per match date:
+//  - camera matches stored in Yapıkolik (position-based rating, goals/assists you entered)
+//  - the analyst's record exported from ChatGPT (older matches, goal lists, match ratings, MOTM)
+// The analyst's ratings sit on a different scale, so they are mapped onto Yapıkolik's scale by
+// matching mean and spread on the matches both rated; where both exist the two are averaged.
 let seasonSort = {col: "goals", dir: -1};
+const seasonOfficial = d => !season || ((!season.season_start || d >= season.season_start) && !(season.excluded || []).includes(d));
+function ratingMap(){
+  if (!season) return x => x;
+  const xs = [], ys = [];
+  for (const raw of matches){ const sm = (season.matches || []).find(q => q.date === raw.date); if (!sm || !sm.ratings) continue;
+    const m = applyRatings(raw), al = (season.yapikolik_alias || {})[raw.date] || {};
+    for (const p of m.players){ const x = sm.ratings[al[p.name] || p.name]; if (x != null){ xs.push(x); ys.push(p.role_rating); } } }
+  if (xs.length < 6) return x => x;
+  const mu = a => a.reduce((s, v) => s + v, 0) / a.length, sd = a => { const u = mu(a); return Math.sqrt(a.reduce((s, v) => s + (v - u) ** 2, 0) / a.length) || 1; };
+  const mx = mu(xs), my = mu(ys), k = sd(ys) / sd(xs);
+  return x => Math.max(3, Math.min(10, my + (x - mx) * k));
+}
+function seasonGames(){
+  // one entry per match: {date, score, players: [{name, team, goals, assists, rating, analyst, role}], mvp, camera}
+  const out = [], f = ratingMap(), byDate = {};
+  for (const raw of matches){ if (/test/i.test(raw.id || "")) continue; byDate[raw.date] = raw; }
+  const dates = new Set([...Object.keys(byDate), ...((season && season.matches) || []).map(m => m.date)]);
+  for (const d of [...dates].sort()){
+    if (!seasonOfficial(d)) continue;
+    const raw = byDate[d], sm = season && (season.matches || []).find(q => q.date === d), al = (season && (season.yapikolik_alias || {})[d]) || {};
+    if (raw){
+      const m = applyRatings(raw), F = gpsFactor(m), best = Math.max(...m.players.map(q => q.role_rating));
+      const players = m.players.map(p => { const name = al[p.name] || p.name, e = ev(m, p), x = sm && sm.ratings ? sm.ratings[name] : null;
+        return {name, team: p.team, goals: e.goals || 0, assists: e.assists || 0, analyst: x ?? null,
+          rating: x != null ? (p.role_rating + f(x)) / 2 : p.role_rating, role: p.role, ints: p.interceptions || 0, photo: p.photo,
+          dist: F ? Math.round(p.distance_m / Math.max(p.minutes, 1) * F) : null, top: p.role_rating === best}; });
+      out.push({date: d, score: m.score || (sm && sm.score), players, mvp: (sm && sm.mvp) || (players.find(p => p.top) || {}).name, camera: true, goals: sm ? sm.goals : null});
+    } else if (sm){
+      const ev2 = {}; for (const g of sm.goals || []){ if (g.scorer) (ev2[g.scorer] ||= [0, 0])[0]++; if (g.assist) (ev2[g.assist] ||= [0, 0])[1]++; }
+      const players = sm.teams.flatMap(t => t.players.map(n => ({name: n, team: t.name, goals: (ev2[n] || [0])[0], assists: (ev2[n] || [0, 0])[1],
+        analyst: sm.ratings && sm.ratings[n] != null ? sm.ratings[n] : null, rating: sm.ratings && sm.ratings[n] != null ? f(sm.ratings[n]) : null,
+        role: (sm.roles || {})[n] || (n === t.gk ? "GK" : null), ints: null, dist: null})));
+      out.push({date: d, score: sm.score, players, mvp: sm.mvp, camera: false, goals: sm.goals});
+    }
+  }
+  return out;
+}
+function seasonInfo(name){ return season && (season.players || []).find(p => p.name === name || (p.aliases || []).includes(name)); }
 function seasonRows(){
   const P = {};
-  for (const raw of matches){
-    const m = applyRatings(raw), sc = m.score || {}, names = Object.keys(sc), F = gpsFactor(m);
-    const best = Math.max(...m.players.map(q => q.role_rating));
-    for (const p of m.players){
-      const r = P[p.name] ||= {name: p.name, photo: null, mp: 0, w: 0, d: 0, l: 0, goals: 0, assists: 0, rsum: 0, motm: 0, dist: 0, distN: 0, ints: 0, roles: {}};
+  for (const g of seasonGames()){
+    const names = g.score ? Object.keys(g.score) : [];
+    for (const p of g.players){
+      const r = P[p.name] ||= {name: p.name, photo: null, mp: 0, w: 0, d: 0, l: 0, goals: 0, assists: 0, rsum: 0, rn: 0, asum: 0, an: 0, motm: 0, dist: 0, distN: 0, ints: 0, cam: 0, roles: {}};
       if (p.photo) r.photo = p.photo;
-      const e = ev(m, p); r.mp++; r.goals += e.goals || 0; r.assists += e.assists || 0; r.rsum += p.role_rating; r.ints += p.interceptions || 0;
-      r.roles[p.role] = (r.roles[p.role] || 0) + 1;
-      if (p.role_rating === best) r.motm++;
-      if (F){ r.dist += Math.round(p.distance_m / Math.max(p.minutes, 1) * F); r.distN++; }
-      if (names.length === 2 && names.includes(p.team)){ const own = +sc[p.team], opp = +sc[names.find(n => n !== p.team)];
+      r.mp++; r.goals += p.goals; r.assists += p.assists;
+      if (p.rating != null){ r.rsum += p.rating; r.rn++; } if (p.analyst != null){ r.asum += p.analyst; r.an++; }
+      if (p.ints != null){ r.ints += p.ints; r.cam++; }
+      if (p.role) r.roles[p.role] = (r.roles[p.role] || 0) + 1;
+      if (g.mvp === p.name) r.motm++;
+      if (p.dist != null){ r.dist += p.dist; r.distN++; }
+      if (names.length === 2 && names.includes(p.team)){ const own = +g.score[p.team], opp = +g.score[names.find(n => n !== p.team)];
         if (own > opp) r.w++; else if (own < opp) r.l++; else r.d++; }
     }
   }
-  return Object.values(P).map(r => ({...r, rating: r.rsum / r.mp, role: Object.entries(r.roles).sort((a, b) => b[1] - a[1])[0][0],
-    ga: r.goals + r.assists, dist_avg: r.distN ? r.dist / r.distN : null, winpct: (r.w + r.d + r.l) ? r.w / (r.w + r.d + r.l) : null}));
+  return Object.values(P).map(r => { const si = seasonInfo(r.name), pos = si && si.positions && si.positions[0];
+    const role = Object.entries(r.roles).sort((a, b) => b[1] - a[1])[0];
+    return {...r, rating: r.rn ? r.rsum / r.rn : null, analyst: r.an ? r.asum / r.an : null, role: role ? role[0] : pos || null,
+      ga: r.goals + r.assists, dist_avg: r.distN ? r.dist / r.distN : null, winpct: (r.w + r.d + r.l) ? r.w / (r.w + r.d + r.l) : null, ints: r.cam ? r.ints : null}; });
 }
 function renderSeason(view){
-  if (!matches.length){ view.innerHTML = `<div class="empty">Henüz maç yok.</div>`; return; }
+  const games = seasonGames();
+  if (!games.length){ view.innerHTML = `<div class="empty">Henüz maç yok.</div>`; return; }
   const rows = seasonRows();
   const C = [
-    {k: "name", h: "Oyuncu", txt: true, c: r => `<button type="button" class="plink" data-season="${esc(r.name)}">${r.photo ? `<img class="ava" src="${esc(r.photo)}" alt="" loading="lazy">` : `<span class="ava none" aria-hidden="true">${esc(r.name.slice(0, 1))}</span>`}<span>${esc(r.name)}</span></button>`},
+    {k: "name", h: "Oyuncu", txt: true, c: r => `<span class="plink">${r.photo ? `<img class="ava" src="${esc(r.photo)}" alt="" loading="lazy">` : `<span class="ava none" aria-hidden="true">${esc(r.name.slice(0, 1))}</span>`}<span>${esc(r.name)}</span></span>`},
     {k: "role", h: "Mevki", c: r => `<span class="role" title="${ROLE_TR[r.role] || ""}">${ROLE_AB[r.role] || "–"}</span>`, v: r => ["GK", "DEF", "MID", "FWD"].indexOf(r.role)},
     {k: "mp", h: "Maç", c: r => r.mp},
     {k: "w", h: "G", c: r => r.w}, {k: "d", h: "B", c: r => r.d}, {k: "l", h: "M", low: true, c: r => r.l},
     {k: "winpct", h: "Galibiyet %", c: r => r.winpct == null ? "–" : Math.round(100 * r.winpct) + "%"},
     {k: "goals", h: "Gol", c: r => r.goals}, {k: "assists", h: "Asist", c: r => r.assists}, {k: "ga", h: "G+A", c: r => r.ga},
-    {k: "rating", h: "Ort. puan", c: r => `<span class="chip" style="background:${ratingColor(r.rating)}">${r.rating.toFixed(1)}</span>`},
+    {k: "rating", h: "Ort. puan", c: r => r.rating == null ? "–" : `<span class="chip" style="background:${ratingColor(r.rating)}">${r.rating.toFixed(1)}</span>`},
+    {k: "analyst", h: "Analist puanı", c: r => r.analyst == null ? "–" : r.analyst.toFixed(1)},
     {k: "motm", h: "Maçın adamı", c: r => r.motm},
     {k: "dist_avg", h: "Ort. mesafe (m)", c: r => r.dist_avg == null ? "–" : num(Math.round(r.dist_avg))},
-    {k: "ints", h: "Top kapma", c: r => r.ints},
+    {k: "ints", h: "Top kapma", c: r => r.ints == null ? "–" : r.ints},
   ];
   const col = C.find(c => c.k === seasonSort.col) || C[7], val = r => col.v ? col.v(r) : r[col.k];
   rows.sort((a, b) => { const x = val(a), y = val(b); const d = col.txt ? String(x).localeCompare(String(y), "tr") : ((x ?? -1) - (y ?? -1));
     return seasonSort.dir * d || (b.goals - a.goals) || (b.assists - a.assists); });
-  const dates = matches.map(m => m.date).filter(Boolean).sort();
-  view.innerHTML = `<section class="panel"><h2>Sezon istatistikleri</h2><p class="note" style="margin-top:6px">${matches.length} maç${dates.length ? ` · ${esc(dates[0])} – ${esc(dates[dates.length - 1])}` : ""}. Gol ve asistler girilen skorlardan; galibiyet oyuncunun o haftaki takımına göre. Puan her maçın tamamı için mevkiye göre hesaplanır. Maçın adamı: o maçın en yüksek puanı. Sıralamak için bir başlığa dokunun.</p>
+  const first = games[0].date, last = games[games.length - 1].date, cam = games.filter(g => g.camera).length;
+  const list = games.slice().reverse().map(g => { const n = g.score ? Object.entries(g.score) : [];
+    const sc = n.length === 2 ? `${esc(n[0][0])} <b>${n[0][1]}-${n[1][1]}</b> ${esc(n[1][0])}` : "skor yok";
+    const scorers = {}; for (const p of g.players) if (p.goals) scorers[p.name] = p.goals;
+    return `<li><span class="gmin" style="min-width:86px">${esc(g.date)}</span><span class="gwho">${sc}${g.camera ? ` <span class="wnote">kamera</span>` : ""}<br><span class="note">${Object.entries(scorers).sort((a, b) => b[1] - a[1]).map(([k, v]) => esc(k) + (v > 1 ? " " + v : "")).join(", ") || "–"}${g.mvp ? ` · Maçın adamı: ${esc(g.mvp)}` : ""}</span></span></li>`; }).join("");
+  view.innerHTML = `<section class="panel"><h2>Sezon istatistikleri</h2><p class="note" style="margin-top:6px">${games.length} resmi maç (${esc(first)} – ${esc(last)}), ${cam} tanesi kamerayla analiz edildi.${season ? ` Kamerasız maçlar analistin kayıtlarından (ChatGPT) gelir${(season.excluded || []).length ? `; ${season.excluded.map(esc).join(", ")} keşif maçı sayılmaz` : ""}.` : ""} Gol ve asistler girilen skorlardan; galibiyet oyuncunun o haftaki takımına göre. <b>Ort. puan</b>: kameralı maçlarda Yapıkolik puanı ile analist puanının ortalaması, diğerlerinde analist puanı; analist puanları Yapıkolik ölçeğine çevrilir. <b>Analist puanı</b>: ChatGPT'deki ham puan. Sıralamak için bir başlığa dokunun.</p>
     <div class="scroll" style="margin-top:10px"><table><thead><tr>${C.map(c => `<th aria-sort="${c.k === seasonSort.col ? (seasonSort.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="thbtn" data-ssort="${c.k}">${c.h}${c.k === seasonSort.col ? (seasonSort.dir > 0 ? " ▲" : " ▼") : ""}</button></th>`).join("")}</tr></thead>
-    <tbody>${rows.map(r => `<tr>${C.map(c => `<td>${c.c(r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>`;
+    <tbody>${rows.map(r => `<tr>${C.map(c => `<td>${c.c(r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>
+    <section class="panel"><h2>Maçlar</h2><ol class="glist" style="margin-top:8px">${list}</ol></section>`;
   view.querySelectorAll("[data-ssort]").forEach(b => b.addEventListener("click", () => {
     const k = b.dataset.ssort, c = C.find(x => x.k === k);
     seasonSort = seasonSort.col === k ? {col: k, dir: -seasonSort.dir} : {col: k, dir: c.txt ? 1 : (c.low ? 1 : -1)}; renderSeason(view); }));
+}
+
+// ---- Kadro kur: split the players who are coming into two balanced 7-a-side teams.
+// Strength = season rating pulled towards the group average when a player has few matches
+// (small samples are treated cautiously). Every split of the outfield players is tried; a split is
+// scored on the strength gap, how evenly defenders/midfielders/forwards are spread, and the
+// chemistry pairs from the analyst's notes. "Must play together" groups are never split.
+let pickSel = null;
+function builderPool(){
+  const rows = seasonRows(), P = {};
+  const avg = (() => { const r = rows.filter(x => x.rating != null); return r.length ? r.reduce((s, x) => s + x.rating, 0) / r.length : 7; })();
+  for (const r of rows){ const n = r.rn || 0; P[r.name] = {name: r.name, photo: r.photo, n: r.mp, strength: ((r.rating ?? avg) * n + avg * 2) / (n + 2), role: r.role}; }
+  for (const sp of (season && season.players) || []) if (!P[sp.name]) P[sp.name] = {name: sp.name, photo: null, n: 0, strength: avg, role: (sp.positions || [])[0] || null};
+  const fixed = (season && season.constraints && season.constraints.fixed_role) || {};
+  for (const p of Object.values(P)){ const sp = seasonInfo(p.name); if (fixed[p.name]) p.role = fixed[p.name];
+    else if (sp && sp.positions && sp.positions[0]) p.role = sp.positions[0];
+    if (!p.role) p.role = "MID"; }
+  return {P, avg};
+}
+function bestSplits(sel, P){
+  const gks = sel.filter(n => P[n].role === "GK"), out = sel.filter(n => !(gks.length === 2 && gks.includes(n)));
+  const chem = (season && season.chemistry) || [], together = ((season && season.constraints && season.constraints.together) || []);
+  const half = Math.floor(out.length / 2), res = [];
+  const teamScore = team => { let s = team.reduce((a, n) => a + P[n].strength, 0); const used = [];
+    for (const c of chem) if (c.players.every(n => team.includes(n))){ s += c.effect === "good" ? 0.25 : -0.25; used.push(c); }
+    return {s, used}; };
+  const cnt = (team, r) => team.filter(n => P[n].role === r).length;
+  const N = out.length; if (N < 2 || N > 16) return [];
+  for (let mask = 0; mask < (1 << N); mask++){
+    let bits = 0; for (let i = 0; i < N; i++) if (mask >> i & 1) bits++;
+    if (bits !== half || (N % 2 === 0 && (mask & 1) === 0)) continue;     // each split once
+    const A = [], B = []; out.forEach((n, i) => (mask >> i & 1 ? A : B).push(n));
+    if (gks.length === 2){ A.push(gks[0]); B.push(gks[1]); }
+    if (together.some(g => { const here = g.filter(n => sel.includes(n)); return here.length > 1 && !(here.every(n => A.includes(n)) || here.every(n => B.includes(n))); })) continue;
+    const a = teamScore(A), b = teamScore(B);
+    const pen = Math.abs(a.s - b.s) + 0.4 * Math.abs(cnt(A, "DEF") - cnt(B, "DEF")) + 0.3 * Math.abs(cnt(A, "MID") - cnt(B, "MID")) + 0.3 * Math.abs(cnt(A, "FWD") - cnt(B, "FWD"));
+    res.push({A, B, a, b, pen});
+  }
+  return res.sort((x, y) => x.pen - y.pen).slice(0, 3);
+}
+function renderBuilder(view){
+  const {P, avg} = builderPool(), names = Object.keys(P).sort((a, b) => a.localeCompare(b, "tr"));
+  if (!names.length){ view.innerHTML = `<div class="empty">Henüz oyuncu yok.</div>`; return; }
+  if (!pickSel){ const last = seasonGames().slice(-1)[0]; pickSel = new Set(last ? last.players.map(p => p.name).filter(n => P[n]) : []); }
+  const sel = names.filter(n => pickSel.has(n)), gks = sel.filter(n => P[n].role === "GK");
+  const splits = sel.length >= 4 ? bestSplits(sel, P) : [];
+  const chk = n => `<label class="pk"><input type="checkbox" data-pick="${esc(n)}"${pickSel.has(n) ? " checked" : ""}> <span class="role">${ROLE_AB[P[n].role] || "–"}</span> ${esc(n)} <span class="note">${P[n].strength.toFixed(1)}</span></label>`;
+  const team = (t, sc, label) => `<div class="kt"><h3>${label} <span class="note">güç ${sc.s.toFixed(1)}</span></h3><ul>${t.slice().sort((x, y) => ["GK", "DEF", "MID", "FWD"].indexOf(P[x].role) - ["GK", "DEF", "MID", "FWD"].indexOf(P[y].role)).map(n => `<li><span class="role">${ROLE_AB[P[n].role]}</span> ${esc(n)} <span class="note">${P[n].strength.toFixed(1)}</span></li>`).join("")}</ul>${sc.used.length ? `<p class="note">Uyum: ${sc.used.map(c => (c.effect === "good" ? "+ " : "− ") + c.players.map(esc).join(" & ")).join("; ")}</p>` : ""}</div>`;
+  const prob = s => { const d = s.a.s - s.b.s, pA = 1 / (1 + Math.exp(-d / 1.2)), dr = 0.12; return [Math.round(100 * (1 - dr) * pA), Math.round(100 * dr), Math.round(100 * (1 - dr) * (1 - pA))]; };
+  let warn = "";
+  if (sel.length % 2) warn = "Tek sayıda oyuncu seçildi; takımlardan biri bir kişi eksik olur.";
+  else if (gks.length !== 2) warn = gks.length < 2 ? "İki kaleci seçilmedi: kaleciler dağıtılmadan bölünür." : "İkiden fazla kaleci var: fazlası saha oyuncusu sayılır.";
+  view.innerHTML = `<section class="panel"><h2>Kadro kur</h2><p class="note" style="margin-top:6px">Bu hafta gelecekleri işaretleyin (${sel.length} seçili). Her olası bölünme denenir: güç farkı, defans/orta saha/forvet dağılımı ve analistin uyum notları hesaba katılır; "birlikte oynamalı" oyuncular ayrılmaz (Berat & Mehmet, Batu, İhsancem). Güç = sezon puanı; az maçı olanlar grup ortalamasına (${avg.toFixed(1)}) çekilir. Takımlar önce Takım 1 / Takım 2, renkler sonra seçilir.</p>
+    <div class="pkgrid">${names.map(chk).join("")}</div>
+    <div class="seg" style="margin-top:10px"><button type="button" data-pk="last">Son maçın kadrosu</button><button type="button" data-pk="none">Temizle</button></div>
+    ${warn ? `<p class="note warnnote">${esc(warn)}</p>` : ""}</section>
+    ${splits.map((s, i) => { const [p1, pd, p2] = prob(s); return `<section class="panel"><h2>${i ? `Alternatif ${i}` : "Önerilen kadro"}</h2>
+      <p class="note" style="margin-top:6px;text-align:center">Takım 1 %${p1} · Beraberlik %${pd} · Takım 2 %${p2}</p>
+      <div class="kteams">${team(s.A, s.a, "Takım 1")}${team(s.B, s.b, "Takım 2")}</div></section>`; }).join("") || (sel.length >= 4 ? `<section class="panel"><p class="note">Kurallara uyan bir bölünme bulunamadı.</p></section>` : "")}
+    <section class="panel"><p class="note">Olasılıklar kaba tahmindir: güç farkından hesaplanır, beraberlik %12 sabit. Kurallar ve uyum notları analistin (ChatGPT) kayıtlarından gelir.</p></section>`;
+  view.querySelectorAll("[data-pick]").forEach(c => c.addEventListener("change", () => { c.checked ? pickSel.add(c.dataset.pick) : pickSel.delete(c.dataset.pick); renderBuilder(view); }));
+  view.querySelectorAll("[data-pk]").forEach(b => b.addEventListener("click", () => { if (b.dataset.pk === "none") pickSel = new Set(); else pickSel = null; renderBuilder(view); }));
 }
 function ratingColor(r){ return r >= 9 ? "#374df5" : r >= 8 ? "#00adc4" : r >= 7 ? "#00c424" : r >= 6.5 ? "#d9af00" : r >= 6 ? "#ed7e07" : "#dc0c00"; }
 
@@ -611,7 +735,7 @@ function winGoals(m, a, b){
 }
 function renderWinbar(){
   const bar = $("winbar"), m = current, T = m && m.tl;
-  if (!T || tab === "hazirlik" || tab === "sezon"){ bar.hidden = true; return; }
+  if (!T || tab === "hazirlik" || tab === "sezon" || tab === "kadro"){ bar.hidden = true; return; }
   bar.hidden = false;
   const n = T.n, A = $("wa"), B = $("wb");
   if (!win) win = {a: 0, b: n};
@@ -869,6 +993,7 @@ function render(){
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
   if (tab === "hazirlik"){ $("score").hidden = true; $("tabs").hidden = false; $("winbar").hidden = true; renderSetup(view); return; }
   if (tab === "sezon"){ $("score").hidden = true; $("tabs").hidden = false; $("winbar").hidden = true; renderSeason(view); return; }
+  if (tab === "kadro"){ $("score").hidden = true; $("tabs").hidden = false; $("winbar").hidden = true; renderBuilder(view); return; }
   if (!current){ $("score").hidden = true; $("tabs").hidden = !db; $("winbar").hidden = true;
     view.innerHTML = `<div class="empty" id="empty">${esc(emptyMsg)}</div>`; return; }
   renderWinbar();
@@ -1118,6 +1243,7 @@ if (TABS.includes(location.hash.slice(1))) tab = location.hash.slice(1);
       const list = await res.json(); clearTimeout(timer); canWrite = false;
       const tb = document.getElementById("tab-hazirlik"); if (tb) tb.hidden = true;
       if (tab === "hazirlik") tab = "ozet";
+      try { const sr = await fetch("data/season.json", {cache: "no-store"}); if (sr.ok) season = await sr.json(); } catch (_) {}
       matches = list.filter(m => m.teams && m.players).sort((a, b) => String(b.date).localeCompare(String(a.date)));
       if (!matches.length){ setEmpty("Henüz maç eklenmedi."); return; }
       current = matches[0]; render();
@@ -1127,6 +1253,7 @@ if (TABS.includes(location.hash.slice(1))) tab = location.hash.slice(1);
   const user = await use("user"); db = await use("db");
   if (!db){ clearTimeout(timer); setEmpty("Maç verisini görmek için oturum açın."); return; }
   try { canWrite = (user && user.can("data.write")) !== false; if (canWrite && typeof canWrite.then === "function") canWrite = (await canWrite) !== false; } catch (_) { canWrite = false; }
+  db.doc("season/main").get().then(d => { season = d && d.exists ? d.data() : null; if (tab === "sezon" || tab === "kadro") render(); }).catch(() => {});
   db.collection("matches").onSnapshot(snap => {
     clearTimeout(timer);
     matches = snap.docs.map(d => ({...d.data(), id: d.id})).filter(m => m.teams && m.players).sort((a, b) => String(b.date).localeCompare(String(a.date)));
