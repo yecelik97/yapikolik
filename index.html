@@ -202,6 +202,22 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .chips span{border-style:solid;background:var(--soft)}
 .ava{border-width:2px}
 .score .mid{max-width:min(240px,46vw)} .score .side{min-width:72px}
+.ava{max-width:none;flex:none;aspect-ratio:1}
+.plink{white-space:nowrap}
+.lu li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pitchscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media (max-width:520px){
+  .score .in{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:16px 12px}
+  .tname{font-size:16px;overflow-wrap:normal;word-break:normal;hyphens:none}
+  .score .side{min-width:0}
+  .score .mid{max-width:42vw}
+  .goals{font-size:36px}
+  #winbar .in{padding:8px 12px 10px}
+  .wlab small{display:none}
+  .wquick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .wquick button{flex:none;padding:3px 9px}
+  .pitchscroll>svg{min-width:560px}
+}
 /* minute range: two handles on one track, sticky under the tabs */
 #winbar{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 58px);z-index:4;background:var(--bg);padding-top:10px}
 #winbar .in{background:var(--surface);border-radius:16px;padding:10px 16px 12px;box-shadow:0 1px 3px rgba(34,34,38,.08)}
@@ -828,9 +844,9 @@ function render(){
           <text x="${x}" y="${y + 0.45}" text-anchor="middle" font-size="1.2" font-weight="700" fill="var(--on-chip)" font-family="Barlow Condensed, sans-serif">${effRating(m, p).toFixed(1)}</text>
           <text x="${x}" y="${y + 3.1}" text-anchor="middle" font-size="1.25" font-weight="600" fill="var(--ink)" stroke="var(--soft)" stroke-width="0.35" paint-order="stroke" font-family="Inter, sans-serif">${esc(p.name)}${p === keeper ? " (K)" : ""}</text></g>`;
       }
-      lists += `<div><b><span class="dot" style="background:${colorOf(t.name)}"></span>${esc(t.name)}</b><ul class="plain" style="margin-top:4px">${seven.map(p => `<li style="list-style:none;margin:4px 0 4px -18px">${pl(p)}${p === keeper ? " (kaleci)" : ""} · ${p.minutes.toFixed(0)} dk</li>`).join("")}</ul></div>`;
+      lists += `<div><b><span class="dot" style="background:${colorOf(t.name)}"></span>${esc(t.name)}</b><ul class="plain lu" style="margin-top:4px">${seven.map(p => `<li style="list-style:none;margin:4px 0 4px -18px">${pl(p)}${p === keeper ? " (kaleci)" : ""} · ${p.minutes.toFixed(0)} dk</li>`).join("")}</ul></div>`;
     }
-    html += `<section class="panel"><h2>İlk 7 ve ortalama konumlar</h2><div style="margin-top:10px">${pitchSvg(L, W, marks)}</div>
+    html += `<section class="panel"><h2>İlk 7 ve ortalama konumlar</h2><div class="pitchscroll" style="margin-top:10px">${pitchSvg(L, W, marks)}</div>
       <div class="legend" style="margin-top:8px"><span>Her daire oyuncunun maç boyunca ortalama konumu (üst üste binenler hafifçe ayrılmıştır); içindeki sayı puanı.</span><span>İlk 7: her takımda kamerada en uzun takip edilen yedi oyuncu. (K): kaleye en yakın duran.</span></div>
       <div style="display:flex;flex-wrap:wrap;gap:16px 40px;margin-top:12px">${lists}</div></section>`;
   }
