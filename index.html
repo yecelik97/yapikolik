@@ -202,6 +202,8 @@ th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
 .chips span{border-style:solid;background:var(--soft)}
 .ava{border-width:2px}
 .warnnote{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:#fff4e5;color:#8a4b00}
+.role{display:inline-block;min-width:22px;padding:2px 6px;border-radius:6px;background:var(--soft);font:700 12px var(--body);text-align:center}
+.disclaimer{margin:10px 0 0;padding:8px 12px;border-radius:10px;background:var(--surface);color:var(--mute);font:500 12.5px/1.4 var(--body);box-shadow:0 1px 3px rgba(34,34,38,.08)}
 .score .mid{max-width:min(240px,46vw)} .score .side{min-width:72px}
 .ava{max-width:none;flex:none;aspect-ratio:1}
 .plink{white-space:nowrap}
@@ -273,6 +275,7 @@ table.kv td.prev{color:var(--mute);font-size:12px}
   <div class="wticks" id="wticks"></div>
 </div></div>
 <div id="pmodal" hidden></div>
+<div class="gut"><div class="in"><p class="disclaimer">ⓘ Buradaki istatistikler videodan otomatik çıkarılır: gerçeğe yakındır ama %100 doğru değildir.</p></div></div>
 <main class="gut"><div class="in" id="view">
   <div class="empty" id="empty">Maç verileri yükleniyor…</div>
 </div></main>
@@ -361,11 +364,59 @@ function videoPanel(m, colorOf){
 }
 const num = v => v == null ? "–" : v.toLocaleString("tr-TR");
 function ev(m, p){ return (m.events && m.events[p.name]) || {}; }
+// Position-based rating (like Sofascore: every position is judged on what matters for it).
+// Role comes from the player's average position: the one nearest his own goal (or a name with
+// "Kale"/"(K") is the keeper, then outfield players by depth: deepest third defence, front third attack.
+const ROLE_TR = {GK: "Kaleci", DEF: "Defans", MID: "Orta saha", FWD: "Forvet"}, ROLE_AB = {GK: "K", DEF: "D", MID: "O", FWD: "F"};
+const ROLE_W = {
+  GK:  {run: 0,   int: [0.20, 1.0], loss: [0.10, 0.6], pok: [0.03, 0.4], tch: [0, 0],     acc: 0.2, son: [0, 0],    goal: 1.5, ast: 1.0, conc: 0.15, res: 0.30, save: 0.30},
+  DEF: {run: 0.8, int: [0.25, 1.5], loss: [0.15, 1.0], pok: [0.02, 0.6], tch: [0.005, 0.3], acc: 0.4, son: [0.05, 0.3], goal: 1.2, ast: 0.7, conc: 0.06, res: 0.20, save: 0},
+  MID: {run: 1.0, int: [0.15, 1.0], loss: [0.12, 1.0], pok: [0.03, 1.0], tch: [0.01, 0.5], acc: 0.5, son: [0.10, 0.4], goal: 1.0, ast: 0.6, conc: 0.03, res: 0.15, save: 0},
+  FWD: {run: 0.8, int: [0.15, 0.8], loss: [0.08, 0.8], pok: [0.02, 0.6], tch: [0.01, 0.5], acc: 0.3, son: [0.15, 0.6], goal: 0.9, ast: 0.5, conc: 0,    res: 0.15, save: 0}};
+function assignRoles(m){
+  const L = m.pitch[0], ar = (m.report && m.report.attacks_right) || null, roles = {}, fixed = m.roles || {};
+  for (const t of m.teams){
+    const tp = m.players.filter(p => p.team === t.name && p.pos);
+    // depth: metres from the player's own goal line (unknown direction: nearest goal line)
+    const depth = p => ar && t.name in ar ? (ar[t.name] ? p.pos[0] : L - p.pos[0]) : Math.min(p.pos[0], L - p.pos[0]);
+    let gk = tp.find(p => fixed[p.name] === "GK") || tp.find(p => /\bkale\b|\(k\)|\(kk\)/i.test(p.name));
+    if (!gk && tp.length >= 5){ const c = tp.reduce((b, p) => depth(p) < depth(b) ? p : b); if (depth(c) < L * 0.2) gk = c; }
+    if (gk) roles[gk.name] = "GK";
+    const out = tp.filter(p => p !== gk).sort((x, y) => depth(x) - depth(y)), n = out.length, k = Math.round(n / 3);
+    out.forEach((p, i) => { roles[p.name] = fixed[p.name] || (i < k ? "DEF" : i >= n - k ? "FWD" : "MID"); });
+  }
+  return roles;
+}
+function applyRatings(m){
+  const roles = assignRoles(m), full = !m._win, sc = m.score;
+  const paces = m.players.filter(p => p.minutes >= 1 && roles[p.name] !== "GK").map(p => p.distance_m / p.minutes);
+  const mean = paces.reduce((x, y) => x + y, 0) / (paces.length || 1);
+  const sd = Math.sqrt(paces.reduce((x, y) => x + (y - mean) ** 2, 0) / (paces.length || 1)) || 1;
+  const cap = (v, [w, c]) => Math.min(c, w * (v || 0));
+  const players = m.players.map(p => {
+    const role = roles[p.name] || "MID", w = ROLE_W[role], e = ev(m, p), man = (m.manual || {})[p.name] || {};
+    const pm = p.minutes >= 1 ? p.distance_m / p.minutes : mean;
+    let r = 6 + w.run * Math.max(-0.6, Math.min(0.6, 0.25 * (pm - mean) / sd)), parts = {run: r - 6};
+    if (m.has_ball){
+      let b = cap(p.passes_ok, w.pok) + cap(p.touches, w.tch) + cap(p.interceptions, w.int) - cap(p.losses, w.loss) + cap(p.shots_on, w.son);
+      if ((p.passes || 0) >= 5) b += Math.max(-w.acc, Math.min(w.acc, (p.passes_ok / p.passes - 0.7)));
+      r += b; parts.ball = b; }
+    if (w.save && man.saves) { r += Math.min(1.5, w.save * man.saves); parts.saves = man.saves; }
+    if (full && sc && Object.keys(sc).length === 2){
+      const own = +sc[p.team] || 0, opp = +Object.entries(sc).find(([k]) => k !== p.team)[1] || 0;
+      const c = -Math.min(1.5, w.conc * Math.max(0, opp - 3)); r += c; parts.conceded = c;
+      const res = own > opp ? w.res : own < opp ? -w.res : 0; r += res; parts.result = res; }
+    if (full || (m._win && m._win.goalsKnown)){ const g = (e.goals || 0) * w.goal + (e.assists || 0) * w.ast; r += g; parts.goals = g; }
+    return {...p, role, role_rating: Math.max(3, Math.min(10, r)), role_parts: parts};
+  });
+  const teams = m.teams.map(t => { const tp = players.filter(p => p.team === t.name); return {...t, rating: tp.length ? tp.reduce((s, p) => s + p.role_rating, 0) / tp.length : t.rating}; });
+  return {...m, players, teams, _roles: roles};
+}
 // Top kapma +0,15 and top kaybı -0,15 each (up to 1,0 either way). Matches written before
 // rating_v 2 used +0,08 / -0,06 (up to 0,6): swap those terms here so every match counts them the same.
 function ballTerm(p, gain, loss, cap){ return Math.min(cap, gain * (p.interceptions || 0)) - Math.min(cap, loss * (p.losses || 0)); }
 function baseRating(m, p){ return (m.has_ball && !(m.rating_v >= 2)) ? p.rating - ballTerm(p, 0.08, 0.06, 0.6) + ballTerm(p, 0.15, 0.15, 1.0) : p.rating; }
-function effRating(m, p){ const e = ev(m, p); return Math.max(3, Math.min(10, baseRating(m, p) + (e.goals || 0) * 1.0 + (e.assists || 0) * 0.5)); }
+function effRating(m, p){ if (p.role_rating != null) return p.role_rating; const e = ev(m, p); return Math.max(3, Math.min(10, baseRating(m, p) + (e.goals || 0) * 1.0 + (e.assists || 0) * 0.5)); }
 // STATSports calibration: the vest wearer's real distance divided by their camera metres per tracked
 // minute. Every player's camera pace (m per tracked minute) times this gives a full-game distance,
 // so players the cameras followed less are not penalised.
@@ -399,7 +450,7 @@ function openPlayer(name){
   const mates = m.players.filter(q => q.team === p.team).sort((a, b) => effRating(m, b) - effRating(m, a));
   const rank = mates.indexOf(p) + 1;
   const kmh = F0 ? distP(p) / 1000 / ((m.minutes || 60) / 60) : p.avg_kmh;
-  const tiles = [["Gol", e.goals || 0], ["Asist", e.assists || 0], ["Mesafe", num(distP(p)) + " m"], ["Ort. hız", kmh.toFixed(1) + " km/sa"],
+  const tiles = [...(p.role ? [["Mevki", ROLE_TR[p.role]]] : []), ["Gol", e.goals || 0], ["Asist", e.assists || 0], ["Mesafe", num(distP(p)) + " m"], ["Ort. hız", kmh.toFixed(1) + " km/sa"],
     ["Sprint", p.sprints], ["Kamerada", Math.round(p.minutes) + " dk"]];
   const ve = vestEst(m, p);
   if (ve) tiles.push(["HID (tahmini)", num(Math.round(ve.hid_m || 0)) + " m"], ["HSR (tahmini)", num(Math.round(ve.hsr_m || 0)) + " m"], ["Sprint mes. (tahmini)", num(Math.round(ve.sprint_m || 0)) + " m"]);
@@ -772,7 +823,7 @@ function render(){
   if (!current){ $("score").hidden = true; $("tabs").hidden = !db; $("winbar").hidden = true;
     view.innerHTML = `<div class="empty" id="empty">${esc(emptyMsg)}</div>`; return; }
   renderWinbar();
-  const m = windowed(current), [H, A] = m.teams, L = m.pitch[0], W = m.pitch[1];
+  const m = applyRatings(windowed(current)), [H, A] = m.teams, L = m.pitch[0], W = m.pitch[1];
   const colorOf = t => t === H.name ? "var(--home)" : "var(--away)";
   const F0 = gpsFactor(m);
   const distP = p => F0 ? Math.round(p.distance_m / Math.max(p.minutes, 1) * F0) : p.distance_m;
@@ -821,7 +872,7 @@ function render(){
     html += `<section class="panel"><h2>Bu rakamlar ne kadar güvenilir?</h2><ul class="plain" style="margin-top:8px">
       <li>Mesafe, hız ve sprint tahmindir; oyuncular kıyafet rengine göre ayrıldığı için benzer giyinenler karışabilir.</li>
       <li>Pas, dokunuş, top kapma ve topla oynama deneyseldir ve güvenilir değildir: top yalnızca oyuncular arasında giderken ve kameraya yakın yarıda görülür.</li>
-      <li>Puan Yapıkolik'in kendi formülüdür (3–10): 6,0'dan başlar; koşu temposu, isabetli pas, dokunuş ve top kapma artırır, top kaybı düşürür.</li>
+      <li>Puan Yapıkolik'in kendi formülüdür (3–10), Sofascore gibi mevkiye göre değişir. Mevki ortalama konumdan gelir: kaleye en yakın duran kaleci, sahadakilerin en geridekiler defans, en ilerdekiler forvet. Herkes 6,0'dan başlar. Kaleci: kurtarış, yenilen gol (3'ün üstü) ve sonuç ağırlıklı, koşu sayılmaz. Defans: top kapma en çok puanı getirir, top kaybı daha çok düşürür, gol ve asist daha değerlidir. Orta saha: isabetli pas, dokunuş ve koşu. Forvet: isabetli şut ve gol; top kaybı daha az cezalandırılır.</li>
       <li>Şutlar deneyseldir: kale ağzında biten top uçuşlarıdır, bir kısmı kaçabilir ya da yanlış sayılabilir.</li>
       <li>Saha eğimi, saha hakimiyeti ve takım şekli iki kameranın birleştirilmiş konumlarından hesaplanır; topa değil, oyuncuların durduğu yere bakar.</li>
       <li>Ölçülmeyenler: gol, asist (skor alanından girilir), xG, kurtarış, ikili mücadele, faul, korner, ofsayt.</li></ul></section>`;
@@ -858,6 +909,7 @@ function render(){
     const SHx = allShots(m).shots;
     const C = [
       {h: "Oyuncu", v: p => p.name, txt: true, c: p => pl(p)},
+      {h: "Mevki", v: p => ["GK", "DEF", "MID", "FWD"].indexOf(p.role), c: p => `<span class="role" title="${ROLE_TR[p.role] || ""}">${ROLE_AB[p.role] || "–"}</span>`},
       {h: "Puan", v: p => effRating(m, p), c: p => `<span class="chip" style="background:${ratingColor(effRating(m, p))}">${effRating(m, p).toFixed(1)}</span>`},
       {h: "Gol", v: p => ev(m, p).goals || 0, c: p => ev(m, p).goals || 0},
       {h: "Asist", v: p => ev(m, p).assists || 0, c: p => ev(m, p).assists || 0},
