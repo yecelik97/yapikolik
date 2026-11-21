@@ -265,6 +265,7 @@ table.kv td.prev{color:var(--mute);font-size:12px}
   <button role="tab" data-tab="isi" id="tab-isi">Isı haritası</button>
   <button role="tab" data-tab="paslar" id="tab-paslar">Paslar</button>
   <button role="tab" data-tab="sutlar" id="tab-sutlar">Şutlar</button>
+  <button role="tab" data-tab="sezon" id="tab-sezon">Sezon</button>
   <button role="tab" data-tab="hazirlik" id="tab-hazirlik">Maç öncesi</button>
 </div></nav>
 <div id="winbar" class="gut" hidden><div class="in">
@@ -282,7 +283,7 @@ table.kv td.prev{color:var(--mute);font-size:12px}
 
 <script>
 const HEAT = ["#fff3b0","#ffe58a","#fed566","#fec24c","#fdaa3c","#fd9133","#fc7430","#f6552b","#d91f20","#a50424"];
-const TABS = ["ozet","dizilis","oyuncular","isi","paslar","sutlar","hazirlik"];
+const TABS = ["ozet","dizilis","oyuncular","isi","paslar","sutlar","sezon","hazirlik"];
 let matches = [], current = null, tab = "ozet", passTeam = "all", db = null, canWrite = false;
 let plSort = {col: null, dir: -1};
 let shotSel = null, shotPlayer = "", setupDate = null, emptyMsg = "Maç verileri yükleniyor…";
@@ -369,7 +370,7 @@ function ev(m, p){ return (m.events && m.events[p.name]) || {}; }
 // "Kale"/"(K") is the keeper, then outfield players by depth: deepest third defence, front third attack.
 const ROLE_TR = {GK: "Kaleci", DEF: "Defans", MID: "Orta saha", FWD: "Forvet"}, ROLE_AB = {GK: "K", DEF: "D", MID: "O", FWD: "F"};
 const ROLE_W = {
-  GK:  {run: 0,   int: [0.20, 1.0], loss: [0.10, 0.6], pok: [0.03, 0.4], tch: [0, 0],     acc: 0.2, son: [0, 0],    goal: 1.5, ast: 1.0, conc: 0.15, res: 0.30, save: 0.30},
+  GK:  {base: 2.2, run: 0,   int: [0.20, 1.0], loss: [0.10, 0.6], pok: [0.03, 0.4], tch: [0, 0],     acc: 0.2, son: [0, 0],    goal: 1.5, ast: 1.0, conc: 0.15, res: 0.30, save: 0.30},
   DEF: {run: 0.8, int: [0.25, 1.5], loss: [0.15, 1.0], pok: [0.02, 0.6], tch: [0.005, 0.3], acc: 0.4, son: [0.05, 0.3], goal: 1.2, ast: 0.7, conc: 0.06, res: 0.20, save: 0},
   MID: {run: 1.0, int: [0.15, 1.0], loss: [0.12, 1.0], pok: [0.03, 1.0], tch: [0.01, 0.5], acc: 0.5, son: [0.10, 0.4], goal: 1.0, ast: 0.6, conc: 0.03, res: 0.15, save: 0},
   FWD: {run: 0.8, int: [0.15, 0.8], loss: [0.08, 0.8], pok: [0.02, 0.6], tch: [0.01, 0.5], acc: 0.3, son: [0.15, 0.6], goal: 0.9, ast: 0.5, conc: 0,    res: 0.15, save: 0}};
@@ -396,7 +397,7 @@ function applyRatings(m){
   const players = m.players.map(p => {
     const role = roles[p.name] || "MID", w = ROLE_W[role], e = ev(m, p), man = (m.manual || {})[p.name] || {};
     const pm = p.minutes >= 1 ? p.distance_m / p.minutes : mean;
-    let r = 6 + w.run * Math.max(-0.6, Math.min(0.6, 0.25 * (pm - mean) / sd)), parts = {run: r - 6};
+    let r = 6 + (w.base || 0) + w.run * Math.max(-0.6, Math.min(0.6, 0.25 * (pm - mean) / sd)), parts = {run: r - 6};
     if (m.has_ball){
       let b = cap(p.passes_ok, w.pok) + cap(p.touches, w.tch) + cap(p.interceptions, w.int) - cap(p.losses, w.loss) + cap(p.shots_on, w.son);
       if ((p.passes || 0) >= 5) b += Math.max(-w.acc, Math.min(w.acc, (p.passes_ok / p.passes - 0.7)));
@@ -477,6 +478,53 @@ function openPlayer(name){
   el.querySelector(".pclose").focus();
 }
 function closePlayer(){ const el = document.getElementById("pmodal"); if (!el || el.hidden) return; el.hidden = true; el.innerHTML = ""; document.body.style.overflow = ""; }
+// Season table: every stored match, each one rated as a whole match with the position-based rating.
+let seasonSort = {col: "goals", dir: -1};
+function seasonRows(){
+  const P = {};
+  for (const raw of matches){
+    const m = applyRatings(raw), sc = m.score || {}, names = Object.keys(sc), F = gpsFactor(m);
+    const best = Math.max(...m.players.map(q => q.role_rating));
+    for (const p of m.players){
+      const r = P[p.name] ||= {name: p.name, photo: null, mp: 0, w: 0, d: 0, l: 0, goals: 0, assists: 0, rsum: 0, motm: 0, dist: 0, distN: 0, ints: 0, roles: {}};
+      if (p.photo) r.photo = p.photo;
+      const e = ev(m, p); r.mp++; r.goals += e.goals || 0; r.assists += e.assists || 0; r.rsum += p.role_rating; r.ints += p.interceptions || 0;
+      r.roles[p.role] = (r.roles[p.role] || 0) + 1;
+      if (p.role_rating === best) r.motm++;
+      if (F){ r.dist += Math.round(p.distance_m / Math.max(p.minutes, 1) * F); r.distN++; }
+      if (names.length === 2 && names.includes(p.team)){ const own = +sc[p.team], opp = +sc[names.find(n => n !== p.team)];
+        if (own > opp) r.w++; else if (own < opp) r.l++; else r.d++; }
+    }
+  }
+  return Object.values(P).map(r => ({...r, rating: r.rsum / r.mp, role: Object.entries(r.roles).sort((a, b) => b[1] - a[1])[0][0],
+    ga: r.goals + r.assists, dist_avg: r.distN ? r.dist / r.distN : null, winpct: (r.w + r.d + r.l) ? r.w / (r.w + r.d + r.l) : null}));
+}
+function renderSeason(view){
+  if (!matches.length){ view.innerHTML = `<div class="empty">Henüz maç yok.</div>`; return; }
+  const rows = seasonRows();
+  const C = [
+    {k: "name", h: "Oyuncu", txt: true, c: r => `<button type="button" class="plink" data-season="${esc(r.name)}">${r.photo ? `<img class="ava" src="${esc(r.photo)}" alt="" loading="lazy">` : `<span class="ava none" aria-hidden="true">${esc(r.name.slice(0, 1))}</span>`}<span>${esc(r.name)}</span></button>`},
+    {k: "role", h: "Mevki", c: r => `<span class="role" title="${ROLE_TR[r.role] || ""}">${ROLE_AB[r.role] || "–"}</span>`, v: r => ["GK", "DEF", "MID", "FWD"].indexOf(r.role)},
+    {k: "mp", h: "Maç", c: r => r.mp},
+    {k: "w", h: "G", c: r => r.w}, {k: "d", h: "B", c: r => r.d}, {k: "l", h: "M", low: true, c: r => r.l},
+    {k: "winpct", h: "Galibiyet %", c: r => r.winpct == null ? "–" : Math.round(100 * r.winpct) + "%"},
+    {k: "goals", h: "Gol", c: r => r.goals}, {k: "assists", h: "Asist", c: r => r.assists}, {k: "ga", h: "G+A", c: r => r.ga},
+    {k: "rating", h: "Ort. puan", c: r => `<span class="chip" style="background:${ratingColor(r.rating)}">${r.rating.toFixed(1)}</span>`},
+    {k: "motm", h: "Maçın adamı", c: r => r.motm},
+    {k: "dist_avg", h: "Ort. mesafe (m)", c: r => r.dist_avg == null ? "–" : num(Math.round(r.dist_avg))},
+    {k: "ints", h: "Top kapma", c: r => r.ints},
+  ];
+  const col = C.find(c => c.k === seasonSort.col) || C[7], val = r => col.v ? col.v(r) : r[col.k];
+  rows.sort((a, b) => { const x = val(a), y = val(b); const d = col.txt ? String(x).localeCompare(String(y), "tr") : ((x ?? -1) - (y ?? -1));
+    return seasonSort.dir * d || (b.goals - a.goals) || (b.assists - a.assists); });
+  const dates = matches.map(m => m.date).filter(Boolean).sort();
+  view.innerHTML = `<section class="panel"><h2>Sezon istatistikleri</h2><p class="note" style="margin-top:6px">${matches.length} maç${dates.length ? ` · ${esc(dates[0])} – ${esc(dates[dates.length - 1])}` : ""}. Gol ve asistler girilen skorlardan; galibiyet oyuncunun o haftaki takımına göre. Puan her maçın tamamı için mevkiye göre hesaplanır. Maçın adamı: o maçın en yüksek puanı. Sıralamak için bir başlığa dokunun.</p>
+    <div class="scroll" style="margin-top:10px"><table><thead><tr>${C.map(c => `<th aria-sort="${c.k === seasonSort.col ? (seasonSort.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="thbtn" data-ssort="${c.k}">${c.h}${c.k === seasonSort.col ? (seasonSort.dir > 0 ? " ▲" : " ▼") : ""}</button></th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${C.map(c => `<td>${c.c(r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>`;
+  view.querySelectorAll("[data-ssort]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.ssort, c = C.find(x => x.k === k);
+    seasonSort = seasonSort.col === k ? {col: k, dir: -seasonSort.dir} : {col: k, dir: c.txt ? 1 : (c.low ? 1 : -1)}; renderSeason(view); }));
+}
 function ratingColor(r){ return r >= 9 ? "#374df5" : r >= 8 ? "#00adc4" : r >= 7 ? "#00c424" : r >= 6.5 ? "#d9af00" : r >= 6 ? "#ed7e07" : "#dc0c00"; }
 
 // ---- minute range: the same match, counted only between minutes a and b (from match.tl, written by `stats`)
@@ -563,7 +611,7 @@ function winGoals(m, a, b){
 }
 function renderWinbar(){
   const bar = $("winbar"), m = current, T = m && m.tl;
-  if (!T || tab === "hazirlik"){ bar.hidden = true; return; }
+  if (!T || tab === "hazirlik" || tab === "sezon"){ bar.hidden = true; return; }
   bar.hidden = false;
   const n = T.n, A = $("wa"), B = $("wb");
   if (!win) win = {a: 0, b: n};
@@ -820,6 +868,7 @@ function render(){
   const view = $("view");
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
   if (tab === "hazirlik"){ $("score").hidden = true; $("tabs").hidden = false; $("winbar").hidden = true; renderSetup(view); return; }
+  if (tab === "sezon"){ $("score").hidden = true; $("tabs").hidden = false; $("winbar").hidden = true; renderSeason(view); return; }
   if (!current){ $("score").hidden = true; $("tabs").hidden = !db; $("winbar").hidden = true;
     view.innerHTML = `<div class="empty" id="empty">${esc(emptyMsg)}</div>`; return; }
   renderWinbar();
@@ -872,7 +921,7 @@ function render(){
     html += `<section class="panel"><h2>Bu rakamlar ne kadar güvenilir?</h2><ul class="plain" style="margin-top:8px">
       <li>Mesafe, hız ve sprint tahmindir; oyuncular kıyafet rengine göre ayrıldığı için benzer giyinenler karışabilir.</li>
       <li>Pas, dokunuş, top kapma ve topla oynama deneyseldir ve güvenilir değildir: top yalnızca oyuncular arasında giderken ve kameraya yakın yarıda görülür.</li>
-      <li>Puan Yapıkolik'in kendi formülüdür (3–10), Sofascore gibi mevkiye göre değişir. Mevki ortalama konumdan gelir: kaleye en yakın duran kaleci, sahadakilerin en geridekiler defans, en ilerdekiler forvet. Herkes 6,0'dan başlar. Kaleci: kurtarış, yenilen gol (3'ün üstü) ve sonuç ağırlıklı, koşu sayılmaz. Defans: top kapma en çok puanı getirir, top kaybı daha çok düşürür, gol ve asist daha değerlidir. Orta saha: isabetli pas, dokunuş ve koşu. Forvet: isabetli şut ve gol; top kaybı daha az cezalandırılır.</li>
+      <li>Puan Yapıkolik'in kendi formülüdür (3–10), Sofascore gibi mevkiye göre değişir. Mevki ortalama konumdan gelir: kaleye en yakın duran kaleci, sahadakilerin en geridekiler defans, en ilerdekiler forvet. Sahadakiler 6,0'dan, kaleciler 8,2'den başlar (kurtarışlar henüz ölçülemediği için). Kaleci: kurtarış, yenilen gol (3'ün üstü) ve sonuç ağırlıklı, koşu sayılmaz. Defans: top kapma en çok puanı getirir, top kaybı daha çok düşürür, gol ve asist daha değerlidir. Orta saha: isabetli pas, dokunuş ve koşu. Forvet: isabetli şut ve gol; top kaybı daha az cezalandırılır.</li>
       <li>Şutlar deneyseldir: kale ağzında biten top uçuşlarıdır, bir kısmı kaçabilir ya da yanlış sayılabilir.</li>
       <li>Saha eğimi, saha hakimiyeti ve takım şekli iki kameranın birleştirilmiş konumlarından hesaplanır; topa değil, oyuncuların durduğu yere bakar.</li>
       <li>Ölçülmeyenler: gol, asist (skor alanından girilir), xG, kurtarış, ikili mücadele, faul, korner, ofsayt.</li></ul></section>`;
